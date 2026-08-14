@@ -6,6 +6,7 @@ use bevy::DefaultPlugins;
 use bevy::ecs::system::Commands;
 use bevy::input::ButtonInput;
 use bevy::prelude::{any_match_filter, on_message, Bundle, Changed, ChildOf, Click, Entity, FlexDirection, GridTrack, IntoScheduleConfigs, JustifyContent, KeyCode, Message, MessageReader, On, Pointer, Query, Res, ResMut, Resource};
+use bevy::prelude::KeyCode::KeyC;
 use bevy::text::{Font, FontSize, TextColor, TextFont};
 use bevy::ui::{percent, widget::Text, AlignContent, AlignItems, AlignSelf, BackgroundColor, BorderColor, Display, FocusPolicy, JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, UiRect, Val};
 use bevy::utils::default;
@@ -242,7 +243,7 @@ fn handle_input(
         commands.write_message(GameMessage::GuessValue(Value::of_face('K')));
     } else if keyboard_input.just_pressed(KeyCode::KeyA) {
         commands.write_message(GameMessage::GuessValue(Value::of_face('A')));
-    } else if keyboard_input.just_pressed(KeyCode::Space) {
+    } else if keyboard_input.any_just_pressed([KeyCode::Space, KeyCode::Backspace, KeyCode::Delete]) {
         commands.write_message(GameMessage::ClearGuesses);
     }
 }
