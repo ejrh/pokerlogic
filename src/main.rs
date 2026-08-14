@@ -7,9 +7,9 @@ use bevy::DefaultPlugins;
 use bevy::ecs::system::Commands;
 use bevy::input::ButtonInput;
 use bevy::log::info;
-use bevy::prelude::{any_match_filter, on_message, Bundle, Changed, ChildOf, Click, Entity, FlexDirection, GridTrack, IntoScheduleConfigs, IsDefaultUiCamera, JustifyContent, KeyCode, Message, MessageReader, On, Pointer, Query, Res, ResMut, Resource};
+use bevy::prelude::{any_match_filter, on_message, BorderRadius, Bundle, Changed, ChildOf, Click, Entity, FlexDirection, GridTrack, IntoScheduleConfigs, IsDefaultUiCamera, JustifyContent, KeyCode, Message, MessageReader, On, Pointer, Query, Res, ResMut, Resource};
 use bevy::text::{Font, FontSize, TextColor, TextFont};
-use bevy::ui::{percent, widget::Text, AlignContent, AlignItems, AlignSelf, BackgroundColor, Display, FocusPolicy, JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, UiRect, Val};
+use bevy::ui::{percent, widget::Text, AlignContent, AlignItems, AlignSelf, BackgroundColor, Display, FocusPolicy, GridPlacement, JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, UiRect, Val};
 use bevy::utils::default;
 
 use crate::cards::{Suit, Value};
@@ -27,9 +27,11 @@ mod render;
 struct LayoutData {
     font: Handle<Font>,
     symbol_font: Handle<Font>,
-    column_ids: Vec<Entity>,
-    row_ids: Vec<Entity>,
-    tile_ids: Vec<Vec<Entity>>,
+    top_ids: Vec<Entity>,
+    left_ids: Vec<Entity>,
+    right_ids: Vec<Entity>,
+    bottom_ids: Vec<Entity>,
+    tile_ids: Vec<Vec<[Entity; 2]>>,
 }
 
 impl Default for LayoutData {
@@ -37,9 +39,11 @@ impl Default for LayoutData {
         LayoutData {
             font: Handle::default(),
             symbol_font: Handle::default(),
-            column_ids: vec![Entity::PLACEHOLDER; 5],
-            row_ids: vec![Entity::PLACEHOLDER; 5],
-            tile_ids: vec![vec![Entity::PLACEHOLDER; 5]; 5],
+            top_ids: vec![Entity::PLACEHOLDER; 5],
+            left_ids: vec![Entity::PLACEHOLDER; 5],
+            right_ids: vec![Entity::PLACEHOLDER; 5],
+            bottom_ids: vec![Entity::PLACEHOLDER; 5],
+            tile_ids: vec![vec![[Entity::PLACEHOLDER; 2]; 5]; 5],
         }
     }
 }
@@ -104,12 +108,18 @@ fn setup_layout(
     ));
 
     let grid_template_columns = vec![
-        GridTrack::fr(0.8),
+        GridTrack::fr(1.2),
         GridTrack::fr(1.0),
         GridTrack::fr(1.0),
         GridTrack::fr(1.0),
         GridTrack::fr(1.0),
         GridTrack::fr(1.0),
+        GridTrack::fr(1.0),
+        GridTrack::fr(1.0),
+        GridTrack::fr(1.0),
+        GridTrack::fr(1.0),
+        GridTrack::fr(1.0),
+        GridTrack::fr(1.2),
     ];
 
     let grid_template_rows = vec![
@@ -119,6 +129,7 @@ fn setup_layout(
         GridTrack::fr(1.0),
         GridTrack::fr(1.0),
         GridTrack::fr(1.0),
+        GridTrack::minmax(MinTrackSizingFunction::Px(80.0), MaxTrackSizingFunction::Auto),
     ];
 
     let parent_id = commands.spawn((
@@ -147,25 +158,58 @@ fn setup_layout(
         ChildOf(parent_id),
     )).id();
 
-    fn make_heading() -> impl Bundle {
+    fn make_heading(span: u16, topleft: bool) -> impl Bundle {
+        let align_items;
+        let justify_content;
+        if topleft {
+            align_items = AlignItems::Start;
+            justify_content = JustifyContent::Start;
+        } else {
+            align_items = AlignItems::End;
+            justify_content = JustifyContent::End;
+        }
         Node {
             display: Display::Flex,
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
+            align_items,
+            justify_content,
             padding: UiRect::all(Val::Px(8.0)),
+            grid_column: GridPlacement::span(span),
             ..default()
         }
     }
 
-    fn make_card() -> impl Bundle {
+    fn make_card(topleft: bool) -> impl Bundle {
+        let align_items;
+        let justify_content;
+        let border;
+        let padding;
+        let margin;
+        let border_radius;
+        if topleft {
+            align_items = AlignItems::Start;
+            justify_content = JustifyContent::Start;
+            border = UiRect::top(Val::Px(2.0)).with_left(Val::Px(2.0));
+            padding = UiRect::all(Val::Px(8.0)).with_right(Val::Px(0.0));
+            margin = UiRect::right(Val::Px(2.0)).with_bottom(Val::Px(40.0));
+            border_radius = BorderRadius::top_left(Val::Px(10.0))
+        } else {
+            align_items = AlignItems::End;
+            justify_content = JustifyContent::End;
+            border = UiRect::bottom(Val::Px(2.0)).with_right(Val::Px(2.0));
+            padding = UiRect::all(Val::Px(8.0)).with_left(Val::Px(0.0));
+            margin = UiRect::left(Val::Px(2.0)).with_top(Val::Px(40.0));
+            border_radius = BorderRadius::bottom_right(Val::Px(10.0))
+        };
+
         (
             Node {
                 display: Display::Flex,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                border: UiRect::all(Val::Px(2.0)),
-                margin: UiRect::all(Val::Px(8.0)),
-                padding: UiRect::all(Val::Px(8.0)),
+                align_items,
+                justify_content,
+                border,
+                margin,
+                padding,
+                border_radius,
                 ..default()
             },
             FocusPolicy::Block,
@@ -177,23 +221,46 @@ fn setup_layout(
     ));
 
     for i in 0..5 {
-        data.column_ids[i] = commands.spawn((
-            make_heading(),
+        data.top_ids[i] = commands.spawn((
+            make_heading(2, true),
             ChildOf(board_id),
         )).id();
     }
 
+    commands.spawn((
+        Node::default(), ChildOf(board_id),
+    ));
+
     for i in 0..5 {
-        data.row_ids[i] = commands.spawn((
-            make_heading(),
+        data.left_ids[i] = commands.spawn((
+            make_heading(1, true),
             ChildOf(board_id),
         )).id();
         for j in 0..5 {
-            data.tile_ids[i][j] = commands.spawn((
-                make_card(),
+            data.tile_ids[i][j][0] = commands.spawn((
+                make_card(true),
+                ChildOf(board_id),
+            )).id();
+            data.tile_ids[i][j][1] = commands.spawn((
+                make_card(false),
                 ChildOf(board_id),
             )).id();
         }
+        data.right_ids[i] = commands.spawn((
+            make_heading(1, false),
+            ChildOf(board_id),
+        )).id();
+    }
+
+    commands.spawn((
+        Node::default(), ChildOf(board_id),
+    ));
+
+    for i in 0..5 {
+        data.bottom_ids[i] = commands.spawn((
+            make_heading(2, false),
+            ChildOf(board_id),
+        )).id();
     }
 
     // Instructions at bottom

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::mem::MaybeUninit;
 
 use bevy::log::{info, warn};
-use bevy::prelude::{Commands, Component, In, Query, Res, Resource};
+use bevy::prelude::{Commands, Component, Entity, In, Query, Res, Resource};
 use rand::seq::SliceRandom;
 
 use crate::{GameMessage, LayoutData};
@@ -11,12 +11,12 @@ use crate::poker::{identify_hand, PokerHand, HAND_INDICES, HAND_SIZE};
 
 #[derive(Default, Resource)]
 pub struct Selection {
-    pub position: (usize, usize),
+    pub position: (usize, usize, usize),
 }
 
 #[derive(Component)]
 pub struct Tile {
-    pub position: (usize, usize),
+    pub position: (usize, usize, usize),
     pub card: CardId,
     pub known: bool,
     pub guessed_suit: Option<Suit>,
@@ -46,15 +46,19 @@ pub enum ClueGuessState {
 
 #[derive(Clone, Copy, Debug)]
 pub enum ClueLocation {
-    Column(usize),
-    Row(usize),
+    Top(usize),
+    Left(usize),
+    Right(usize),
+    Bottom(usize),
 }
 
 impl ClueLocation {
-    fn tile_positions(&self) -> [(usize, usize); HAND_SIZE] {
+    fn tile_positions(&self) -> [(usize, usize, usize); HAND_SIZE] {
         match self {
-            ClueLocation::Column(column) => HAND_INDICES.map(|row| (row, *column)),
-            ClueLocation::Row(row) => HAND_INDICES.map(|column| (*row, column)),
+            ClueLocation::Top(column) => HAND_INDICES.map(|row| (row, *column, 0)),
+            ClueLocation::Left(row) => HAND_INDICES.map(|column| (*row, column, 0)),
+            ClueLocation::Right(row) => HAND_INDICES.map(|column| (*row, column, 1)),
+            ClueLocation::Bottom(column) => HAND_INDICES.map(|row| (row, *column, 1)),
         }
     }
 }
@@ -72,55 +76,53 @@ pub fn restart_game(
 ) {
     info!("Restarting game");
 
-    let (cards, col_hands, row_hands) = make_game();
+    let (cards, top_hands, left_hands, right_hands, bottom_hands) = make_game();
 
     let mut missings = (0..5).collect::<Vec<_>>();
     missings.shuffle(&mut rand::rng());
 
     for i in 0..5 {
         for j in 0..5 {
-            let card = cards[i][j];
-            let known = missings[i] != j;
-            let new_tile = Tile {
-                position: (i, j),
-                card,
-                known,
-                guessed_suit: None,
-                guessed_value: None,
-                selected: false,
-                duplicate: false,
-            };
+            for k in 0..2 {
+                let card = cards[i][j][k];
+                let known = missings[i] != j;
+                let new_tile = Tile {
+                    position: (i, j, k),
+                    card,
+                    known,
+                    guessed_suit: None,
+                    guessed_value: None,
+                    selected: false,
+                    duplicate: false,
+                };
 
-            commands.entity(data.tile_ids[i][j])
-                .insert(new_tile);
+                commands.entity(data.tile_ids[i][j][k])
+                    .insert(new_tile);
+            }
         }
     }
 
-    for j in 0..5 {
-        let clue = Clue {
-            poker_hand: col_hands[j],
-            state: ClueGuessState::Incomplete,
-            location: ClueLocation::Column(j)
-        };
-        commands.entity(data.column_ids[j])
-            .insert(clue);
+    fn build_clue(commands: &mut Commands, constr: fn(usize) -> ClueLocation, hands: &[PokerHand], ids: &[Entity]) {
+        for i in 0..5 {
+            let clue = Clue {
+                poker_hand: hands[i],
+                state: ClueGuessState::Incomplete,
+                location: constr(i)
+            };
+            commands.entity(ids[i])
+                .insert(clue);
+        }
     }
 
-    for i in 0..5 {
-        let clue = Clue {
-            poker_hand: row_hands[i],
-            state: ClueGuessState::Incomplete,
-            location: ClueLocation::Row(i)
-        };
-        commands.entity(data.row_ids[i])
-            .insert(clue);
-    }
+    build_clue(&mut commands, ClueLocation::Top, &top_hands, &data.top_ids);
+    build_clue(&mut commands, ClueLocation::Left, &left_hands, &data.left_ids);
+    build_clue(&mut commands, ClueLocation::Right, &right_hands, &data.right_ids);
+    build_clue(&mut commands, ClueLocation::Bottom, &bottom_hands, &data.bottom_ids);
 }
 
-fn make_game() -> ([[CardId; 5]; 5], [PokerHand; 5], [PokerHand; 5]) {
-    let mut cards: [[MaybeUninit<CardId>; 5]; 5] = [[MaybeUninit::uninit(); 5]; 5];
-    let mut row_hands: [MaybeUninit<PokerHand>; 5] = [MaybeUninit::uninit(); 5];
-    let mut col_hands: [MaybeUninit<PokerHand>; 5] = [MaybeUninit::uninit(); 5];
+fn make_game() -> ([[[CardId; 2]; 5]; 5], [PokerHand; 5], [PokerHand; 5], [PokerHand; 5], [PokerHand; 5]) {
+    let mut cards: [[[MaybeUninit<CardId>; 2]; 5]; 5] = [[[MaybeUninit::uninit(); 2]; 5]; 5];
+
     let mut retries = 0;
 
     loop {
@@ -129,34 +131,42 @@ fn make_game() -> ([[CardId; 5]; 5], [PokerHand; 5], [PokerHand; 5]) {
 
         for i in 0..5 {
             for j in 0..5 {
-                let card = pack.pop().expect("nonempty pack");
-                cards[i][j].write(card);
+                for k in 0..2 {
+                    let card = pack.pop().expect("nonempty pack");
+                    cards[i][j][k].write(card);
+                }
             }
         }
 
-        let cards = cards.map(|r| r.map(|c| unsafe { c.assume_init() }));
+        let cards = cards.map(
+            |r| r.map(
+                |c| c.map(
+                    |p| unsafe { p.assume_init() }
+        )));
+
+        fn build_hands(cards: &[[[CardId; 2]; 5]; 5], constr: fn(usize) -> ClueLocation, hand_counts: &mut[i32]) -> [PokerHand; 5] {
+            let mut hands: [MaybeUninit<PokerHand>; 5] = [MaybeUninit::uninit(); 5];
+            for i in 0..5 {
+                let loc = constr(i);
+                let mut cards = loc.tile_positions().map(|(i, j, k)| cards[i][j][k]);
+                let poker_hand = identify_hand(&mut cards);
+                hand_counts[poker_hand as usize] += 1;
+                hands[i].write(poker_hand);
+            }
+
+            hands.map(|h| unsafe { h.assume_init() })
+        }
 
         let mut hand_counts = [0; 11];
 
-        for j in 0..5 {
-            let mut col_cards = (0..5).map(|i| cards[i][j]).collect::<Vec<_>>();
-            let poker_hand = identify_hand(&mut col_cards);
-            hand_counts[poker_hand as usize] += 1;
-            row_hands[j].write(poker_hand);
-        }
+        let top_hands = build_hands(&cards, ClueLocation::Top, &mut hand_counts);
+        let left_hands = build_hands(&cards, ClueLocation::Left, &mut hand_counts);
+        let right_hands = build_hands(&cards, ClueLocation::Right, &mut hand_counts);
+        let bottom_hands = build_hands(&cards, ClueLocation::Bottom, &mut hand_counts);
 
-        for i in 0..5 {
-            let mut row_cards = (0..5).map(|j| cards[i][j]).collect::<Vec<_>>();
-            let poker_hand = identify_hand(&mut row_cards);
-            hand_counts[poker_hand as usize] += 1;
-            col_hands[i].write(poker_hand);
-        }
-
-        let row_hands = row_hands.map(|h| unsafe { h.assume_init() });
-        let col_hands = col_hands.map(|h| unsafe { h.assume_init() });
-
-        if hand_counts[PokerHand::Nothing as usize] >= 2 || hand_counts[PokerHand::OnePair as usize] >= 6
-                || hand_counts.iter().filter(|k| **k > 0).count() < 5 {
+        // Check for sufficient interesting hands; redeal if not good enough
+        if hand_counts[PokerHand::Nothing as usize] >= 6 || hand_counts[PokerHand::OnePair as usize] >= 12
+                || hand_counts.iter().filter(|k| **k > 0).count() < 4 {
             retries += 1;
             if retries % 1000 == 0 {
                 warn!("Retrying shuffle {retries} times!")
@@ -165,7 +175,7 @@ fn make_game() -> ([[CardId; 5]; 5], [PokerHand; 5], [PokerHand; 5]) {
             continue;
         }
 
-        return (cards, row_hands, col_hands);
+        return (cards, top_hands, left_hands, right_hands, bottom_hands);
     }
 }
 
@@ -241,7 +251,7 @@ pub fn guess_suit(
 ) {
     info!("Guessing suit: {}", suit.symbol());
 
-    let tile_id = layout_data.tile_ids[selection.position.0][selection.position.1];
+    let tile_id = layout_data.tile_ids[selection.position.0][selection.position.1][selection.position.2];
     let Ok(mut tile) = tiles.get_mut(tile_id)
     else { return; };
 
@@ -258,7 +268,7 @@ pub fn guess_value(
 ) {
     info!("Guessing value: {}", value.symbol());
 
-    let tile_id = layout_data.tile_ids[selection.position.0][selection.position.1];
+    let tile_id = layout_data.tile_ids[selection.position.0][selection.position.1][selection.position.2];
     let Ok(mut tile) = tiles.get_mut(tile_id)
     else { return; };
 
@@ -274,7 +284,7 @@ pub fn clear_guesses(
 ) {
     info!("Clearing guesses");
 
-    let tile_id = layout_data.tile_ids[selection.position.0][selection.position.1];
+    let tile_id = layout_data.tile_ids[selection.position.0][selection.position.1][selection.position.2];
     let Ok(mut tile) = tiles.get_mut(tile_id)
     else { return; };
 
@@ -286,8 +296,8 @@ pub fn clear_guesses(
 
 fn get_cards_for_clue(layout_data: &LayoutData, tiles: Query<&Tile>, location: ClueLocation) -> Vec<CardId> {
     let mut cards = Vec::new();
-    for (row, column) in location.tile_positions() {
-        let tile_id = layout_data.tile_ids[row][column];
+    for (row, column, plane) in location.tile_positions() {
+        let tile_id = layout_data.tile_ids[row][column][plane];
 
         let Ok(tile) = tiles.get(tile_id)
         else { continue; };
