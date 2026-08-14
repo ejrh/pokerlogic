@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use bevy::asset::Assets;
 use bevy::camera::visibility::RenderLayers;
 use bevy::color::Color;
@@ -10,6 +12,11 @@ use rand::RngExt;
 pub struct Velocity(Vec3);
 
 const NUM_PARTICLES: usize = 1000;
+const SPAWN_RADIUS: f32 = 10.0;
+const SPAWN_VELOCITY: f32 = 2000.0;
+const SCALE_RANGE: Range<f32> = 1.0..4.0;
+const GRAVITY: Vec3 = Vec3::new(0.0, -1000.0, 0.0);
+const DRAG: f32 = 1.5;
 
 pub fn spawn_fireworks(
     mut commands: Commands,
@@ -24,9 +31,9 @@ pub fn spawn_fireworks(
     ];
 
     for _ in 0..NUM_PARTICLES {
-        let (x,y) = rand_in_circle(10.0);
-        let (vx, vy) = rand_in_circle(2000.0);
-        let scale = rand::rng().random_range(0.0..5.0);
+        let (x,y) = rand_in_circle(SPAWN_RADIUS);
+        let (vx, vy) = rand_in_circle(SPAWN_VELOCITY);
+        let scale = rand::rng().random_range(SCALE_RANGE);
         let material = &fireworks_materials[rand::rng().random_range(0..fireworks_materials.len())];
 
         commands.spawn((
@@ -46,16 +53,14 @@ pub fn animate_fireworks(
 ) {
     let dt = time.delta_secs();
 
-    let gravity = Vec3::new(0.0, -1000.0, 0.0);
-    let drag = 1.5;
-
     for (id, mut v, mut t) in fireworks.iter_mut() {
-        let a = gravity - drag * v.0;
+        let a = GRAVITY - DRAG * v.0;
         v.0 += a * dt;
 
         t.translation += v.0 * dt;
 
-        if t.translation.y < -400.0 {
+        // If we are below the visible screen and heading down, just disappear
+        if t.translation.y < -400.0 && v.0.y < 0.0 {
             commands.entity(id).despawn();
         }
     }
