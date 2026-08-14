@@ -7,7 +7,7 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly main: (a: number, b: number) => number;
     readonly wasm_bindgen_c6b32ff19ee0a2fc___convert__closures_____invoke___wasm_bindgen_c6b32ff19ee0a2fc___JsValue__core_9b3796e30d99ddb7___result__Result_____wasm_bindgen_c6b32ff19ee0a2fc___JsError___true_: (a: number, b: number, c: any) => [number, number];
-    readonly wasm_bindgen_c6b32ff19ee0a2fc___convert__closures_____invoke___js_sys_e42709f84e3507c1___Array__web_sys_388f62a9412b0621___features__gen_ResizeObserver__ResizeObserver______true_: (a: number, b: number, c: any, d: any) => void;
+    readonly wasm_bindgen_c6b32ff19ee0a2fc___convert__closures_____invoke___js_sys_cceb12e13c1d4ea8___Array__web_sys_4181f90f4c78605a___features__gen_ResizeObserver__ResizeObserver______true_: (a: number, b: number, c: any, d: any) => void;
     readonly wasm_bindgen_c6b32ff19ee0a2fc___convert__closures_____invoke___wasm_bindgen_c6b32ff19ee0a2fc___JsValue______true__1_: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_c6b32ff19ee0a2fc___convert__closures_____invoke___wasm_bindgen_c6b32ff19ee0a2fc___JsValue______true_: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_c6b32ff19ee0a2fc___convert__closures_____invoke___wasm_bindgen_c6b32ff19ee0a2fc___JsValue______true__4: (a: number, b: number, c: any) => void;
