@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::mem::MaybeUninit;
 
 use bevy::log::{info, warn};
@@ -21,6 +22,19 @@ pub struct Tile {
     pub guessed_suit: Option<Suit>,
     pub guessed_value: Option<Value>,
     pub selected: bool,
+    pub duplicate: bool,
+}
+
+impl Tile {
+    pub fn effective_card(&self) -> Option<CardId> {
+        if self.known {
+            Some(self.card)
+        } else if let (Some(suit), Some(value)) = (self.guessed_suit, self.guessed_value) {
+            Some(CardId::new(suit, value))
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -67,7 +81,15 @@ pub fn restart_game(
         for j in 0..5 {
             let card = cards[i][j];
             let known = missings[i] != j;
-            let new_tile = Tile { position: (i, j), card, known, guessed_suit: None, guessed_value: None, selected: false };
+            let new_tile = Tile {
+                position: (i, j),
+                card,
+                known,
+                guessed_suit: None,
+                guessed_value: None,
+                selected: false,
+                duplicate: false,
+            };
 
             commands.entity(data.tile_ids[i][j])
                 .insert(new_tile);
@@ -149,11 +171,11 @@ fn make_game() -> ([[CardId; 5]; 5], [PokerHand; 5], [PokerHand; 5]) {
 
 pub fn check_guesses(
     data: Res<LayoutData>,
-    tiles: Query<&Tile>,
+    tiles: Query<&mut Tile>,
     clues: Query<&mut Clue>,
 ) {
     for mut clue in clues {
-        let mut cards = get_cards_for_clue(&data, &tiles, clue.location);
+        let mut cards = get_cards_for_clue(&data, tiles.as_readonly(), clue.location);
         let guessed_hand = identify_hand(&mut cards);
 
         clue.state = if cards.len() < 5 {
@@ -164,13 +186,33 @@ pub fn check_guesses(
             ClueGuessState::Wrong
         }
     }
+
+    let mut tile_cards: HashMap<CardId, u32> = HashMap::new();
+    for tile in tiles.iter() {
+        let Some(card) = tile.effective_card()
+        else { continue; };
+
+        *tile_cards.entry(card).or_default() += 1;
+    }
+
+    for mut tile in tiles {
+        let duplicate = tile.effective_card().map(
+            |card| *tile_cards.entry(card).or_default() > 1
+        ).unwrap_or(false);
+
+        if tile.duplicate != duplicate {
+            tile.duplicate = duplicate;
+        }
+    }
 }
 
 pub fn check_for_victory(
     clues: Query<&Clue>,
+    tiles: Query<&Tile>,
     mut commands: Commands,
 ) {
-    let all_correct = clues.iter().all(|clue| clue.state == ClueGuessState::Correct);
+    let all_correct = clues.iter().all(|clue| clue.state == ClueGuessState::Correct)
+        && tiles.iter().all(|tile| !tile.duplicate);
     if all_correct {
         commands.write_message(GameMessage::Victory);
     }
@@ -242,7 +284,7 @@ pub fn clear_guesses(
     tile.guessed_value = None;
 }
 
-fn get_cards_for_clue(layout_data: &LayoutData, tiles: &Query<&Tile>, location: ClueLocation) -> Vec<CardId> {
+fn get_cards_for_clue(layout_data: &LayoutData, tiles: Query<&Tile>, location: ClueLocation) -> Vec<CardId> {
     let mut cards = Vec::new();
     for (row, column) in location.tile_positions() {
         let tile_id = layout_data.tile_ids[row][column];
@@ -250,13 +292,8 @@ fn get_cards_for_clue(layout_data: &LayoutData, tiles: &Query<&Tile>, location: 
         let Ok(tile) = tiles.get(tile_id)
         else { continue; };
 
-        let card = if tile.known {
-            tile.card
-        } else if let (Some(suit), Some(value)) = (tile.guessed_suit, tile.guessed_value) {
-            CardId::new(suit, value)
-        } else {
-            continue;
-        };
+        let Some(card) = tile.effective_card()
+        else { continue; };
         cards.push(card)
     }
     cards

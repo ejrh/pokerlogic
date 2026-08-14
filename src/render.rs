@@ -58,6 +58,12 @@ pub fn render_tiles(
                 colour = Color::srgb(0.3, 0.3, 0.3);
             }
 
+            let (mark, mark_colour) = if tile.duplicate {
+                (" ✗", Color::srgb(0.8, 0.2, 0.2))
+            } else {
+                ("", Color::srgb(0.2, 0.2, 0.2))
+            };
+
             commands.spawn((
                 Text::new(suit_str),
                 TextColor(colour),
@@ -73,6 +79,18 @@ pub fn render_tiles(
                 Text::new(value_str),
                 TextColor(colour),
                 TextFont::from(data.font.clone()).with_font_size(FontSize::Px(28.0)),
+                ChildOf(tile_id),
+            ));
+
+            commands.spawn((
+                Node {
+                    position_type: PositionType::Relative,
+                    top: Val::Px(2.0),
+                    ..default()
+                },
+                Text::new(mark),
+                TextColor(mark_colour),
+                TextFont::from(data.symbol_font.clone()).with_font_size(FontSize::Px(28.0)),
                 ChildOf(tile_id),
             ));
         }
