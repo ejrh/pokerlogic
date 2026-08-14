@@ -15,7 +15,7 @@ use bevy::utils::default;
 use crate::cards::{Suit, Value};
 use crate::fireworks::{animate_fireworks, spawn_fireworks};
 use crate::render::{render_clues, render_tiles};
-use crate::game::{Tile, restart_game, select_tile, Selection, guess_suit, guess_value, clear_guesses, check_guesses, Clue, check_for_victory};
+use crate::game::{Tile, restart_game, select_tile, Selection, guess_suit, guess_value, clear_guesses, check_guesses, Clue, check_for_victory, solve_all};
 
 mod cards;
 mod fireworks;
@@ -56,6 +56,7 @@ enum GameMessage {
     GuessSuit(Suit),
     GuessValue(Value),
     ClearGuesses,
+    SolveAll,
     Victory,
 }
 
@@ -335,7 +336,7 @@ fn handle_input(
     } else if keyboard_input.any_just_pressed([KeyCode::Space, KeyCode::Backspace, KeyCode::Delete]) {
         commands.write_message(GameMessage::ClearGuesses);
     } else if keyboard_input.just_pressed(KeyCode::KeyX) {
-        commands.write_message(GameMessage::Victory);
+        commands.write_message(GameMessage::SolveAll);
     }
 }
 
@@ -368,6 +369,7 @@ fn handle_game_messages(
             GameMessage::GuessSuit(suit) => commands.run_system_cached_with(guess_suit, *suit),
             GameMessage::GuessValue(value) => commands.run_system_cached_with(guess_value, *value),
             GameMessage::ClearGuesses => commands.run_system_cached(clear_guesses),
+            GameMessage::SolveAll => commands.run_system_cached(solve_all),
             GameMessage::Victory => commands.run_system_cached(spawn_fireworks),
         }
     }

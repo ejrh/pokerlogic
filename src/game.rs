@@ -294,6 +294,15 @@ pub fn clear_guesses(
     tile.guessed_value = None;
 }
 
+pub fn solve_all(
+    tiles: Query<&mut Tile>,
+) {
+    for mut tile in tiles {
+        tile.guessed_suit = Some(tile.card.suit);
+        tile.guessed_value = Some(tile.card.value);
+    }
+}
+
 fn get_cards_for_clue(layout_data: &LayoutData, tiles: Query<&Tile>, location: ClueLocation) -> Vec<CardId> {
     let mut cards = Vec::new();
     for (row, column, plane) in location.tile_positions() {
