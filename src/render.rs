@@ -6,12 +6,11 @@ use bevy::utils::default;
 
 use crate::cards::SuitColour;
 use crate::LayoutData;
-use crate::game::{Hand, HandGuessState, Tile};
+use crate::game::{Clue, ClueGuessState, ClueLocation, Tile};
 
-pub(crate) fn render_game(
+pub fn render_tiles(
     data: Res<LayoutData>,
     tiles: Query<&Tile, Changed<Tile>>,
-    hands: Query<&Hand, Changed<Hand>>,
     mut commands: Commands
 ) {
     for i in 0..5 {
@@ -78,54 +77,35 @@ pub(crate) fn render_game(
             ));
         }
     }
+}
 
-    for i in 0..5 {
-        let column_id = data.column_ids[i];
-
-        let Ok(hand) = hands.get(column_id)
-        else { continue; };
-
-        commands.entity(column_id).despawn_children();
-
-        let (mark, text_colour) = match hand.state {
-            HandGuessState::Incomplete => ("", Color::srgb(0.6, 0.6, 0.6)),
-            HandGuessState::Correct => (" ✓", Color::srgb(0.2, 0.8, 0.2)),
-            HandGuessState::Wrong => (" ✗", Color::srgb(0.8, 0.2, 0.2)),
+pub(crate) fn render_clues(
+    data: Res<LayoutData>,
+    clues: Query<&Clue, Changed<Clue>>,
+    mut commands: Commands
+) {
+    for clue in clues {
+        let header_id = match clue.location {
+            ClueLocation::Column(column) => data.column_ids[column],
+            ClueLocation::Row(row) => data.row_ids[row],
         };
 
-        let text = format!("{}{}", hand.poker_hand.name(), mark);
+        commands.entity(header_id).despawn_children();
+
+        let (mark, text_colour) = match clue.state {
+            ClueGuessState::Incomplete => ("", Color::srgb(0.6, 0.6, 0.6)),
+            ClueGuessState::Correct => (" ✓", Color::srgb(0.2, 0.8, 0.2)),
+            ClueGuessState::Wrong => (" ✗", Color::srgb(0.8, 0.2, 0.2)),
+        };
+
+        let text = format!("{}{}", clue.poker_hand.name(), mark);
 
         commands.spawn((
             Text::new(text),
             TextColor(text_colour),
             TextFont::from(data.symbol_font.clone()).with_font_size(FontSize::Px(24.0)),
             TextLayout::justify(Justify::Center),
-            ChildOf(column_id),
-        ));
-    }
-
-    for i in 0..5 {
-        let row_id = data.row_ids[i];
-
-        let Ok(hand) = hands.get(row_id)
-        else { continue; };
-
-        commands.entity(row_id).despawn_children();
-
-        let (mark, text_colour) = match hand.state {
-            HandGuessState::Incomplete => ("", Color::srgb(0.6, 0.6, 0.6)),
-            HandGuessState::Correct => (" ✓", Color::srgb(0.2, 0.8, 0.2)),
-            HandGuessState::Wrong => (" ✗", Color::srgb(0.8, 0.2, 0.2)),
-        };
-
-        let text = format!("{}{}", hand.poker_hand.name(), mark);
-
-        commands.spawn((
-            Text::new(text),
-            TextColor(text_colour),
-            TextFont::from(data.symbol_font.clone()).with_font_size(FontSize::Px(24.0)),
-            TextLayout::justify(Justify::Center),
-            ChildOf(row_id),
+            ChildOf(header_id),
         ));
     }
 }

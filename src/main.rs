@@ -11,7 +11,7 @@ use bevy::ui::{percent, widget::Text, AlignContent, AlignItems, AlignSelf, Backg
 use bevy::utils::default;
 
 use crate::cards::{Suit, Value};
-use crate::render::render_game;
+use crate::render::{render_clues, render_tiles};
 use crate::game::{Tile, restart_game, select_tile, Selection, guess_suit, guess_value, clear_guesses, check_guesses};
 
 mod cards;
@@ -62,7 +62,7 @@ fn main() {
     app.add_systems(Startup, restart_game.after(setup_layout));
     app.add_systems(Update, handle_input);
     app.add_systems(Update, handle_game_messages.run_if(on_message::<GameMessage>));
-    app.add_systems(Update, render_game.after(handle_game_messages));
+    app.add_systems(Update, (render_tiles, render_clues).after(handle_game_messages));
     app.add_systems(Update, check_guesses.run_if(any_match_filter::<Changed<Tile>>));
     app.add_observer(on_click);
 

@@ -1,5 +1,8 @@
 use crate::cards::{CardId, Value};
 
+pub const HAND_SIZE: usize = 5;
+pub const HAND_INDICES: [usize; HAND_SIZE] = [0, 1, 2, 3, 4];
+
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd)]
 pub enum PokerHand {
     Nothing,
