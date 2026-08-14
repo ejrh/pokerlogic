@@ -188,7 +188,7 @@ fn setup_layout(
             ..default()
         },
         ChildOf(parent_id),
-        Text::new("(C,D,H,S) - guess suit; (2-9,1) - guess value; Space - clear guess"),
+        Text::new("(C,D,H,S) - guess suit; (2-10,J,Q,K,A) - guess value; Space - clear guess"),
         TextColor(Color::srgb(0.8, 0.6, 0.6)),
         TextFont::from(data.font.clone()).with_font_size(FontSize::Px(24.0)),
     ));
