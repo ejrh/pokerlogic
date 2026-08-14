@@ -198,10 +198,14 @@ fn handle_input(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut commands: Commands,
 ) {
+    // Only check for exiting if we're not running as a web app
+    #[cfg(not(target_arch = "wasm32"))]
+    if keyboard_input.just_pressed(KeyCode::Escape) {
+        commands.write_message(GameMessage::Quit);
+    }
+
     if keyboard_input.just_pressed(KeyCode::KeyR) {
         commands.write_message(GameMessage::Restart);
-    } else if keyboard_input.just_pressed(KeyCode::Escape) {
-        commands.write_message(GameMessage::Quit);
     } else if keyboard_input.just_pressed(KeyCode::KeyC) {
         commands.write_message(GameMessage::GuessSuit(Suit::Clubs));
     } else if keyboard_input.just_pressed(KeyCode::KeyH) {
