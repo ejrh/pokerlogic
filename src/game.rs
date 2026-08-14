@@ -1,7 +1,7 @@
 use std::mem::MaybeUninit;
 
 use bevy::log::{info, warn};
-use bevy::prelude::{Commands, Component, In, Query, Res, Resource};
+use bevy::prelude::{Commands, Component, Entity, In, Query, Res, Resource};
 use rand::seq::SliceRandom;
 
 use crate::LayoutData;
@@ -23,9 +23,16 @@ pub struct Tile {
     pub selected: bool,
 }
 
+pub enum HandGuessState {
+    Incomplete,
+    Correct,
+    Wrong,
+}
+
 #[derive(Component)]
 pub struct Hand {
     pub poker_hand: PokerHand,
+    pub state: HandGuessState,
 }
 
 pub fn restart_game(
@@ -52,13 +59,13 @@ pub fn restart_game(
     }
 
     for j in 0..5 {
-        let hand = Hand { poker_hand: col_hands[j] };
+        let hand = Hand { poker_hand: col_hands[j], state: HandGuessState::Incomplete };
         commands.entity(data.column_ids[j])
             .insert(hand);
     }
 
     for i in 0..5 {
-        let hand = Hand { poker_hand: row_hands[i] };
+        let hand = Hand { poker_hand: row_hands[i], state: HandGuessState::Incomplete };
         commands.entity(data.row_ids[i])
             .insert(hand);
     }
@@ -113,6 +120,44 @@ fn make_game() -> ([[CardId; 5]; 5], [PokerHand; 5], [PokerHand; 5]) {
         }
 
         return (cards, row_hands, col_hands);
+    }
+}
+
+pub fn check_guesses(
+    data: Res<LayoutData>,
+    tiles: Query<&Tile>,
+    mut hands: Query<&mut Hand>,
+) {
+    for i in 0..5 {
+        let mut cards = get_cards_in_column(&data, &tiles, i);
+        let guessed_hand = identify_hand(&mut cards);
+
+        let Ok(mut hand) = hands.get_mut(data.column_ids[i])
+        else { continue; };
+
+        hand.state = if cards.len() < 5 {
+            HandGuessState::Incomplete
+        } else if guessed_hand == hand.poker_hand {
+            HandGuessState::Correct
+        } else {
+            HandGuessState::Wrong
+        }
+    }
+
+    for i in 0..5 {
+        let mut cards = get_cards_in_row(&data, &tiles, i);
+        let guessed_hand = identify_hand(&mut cards);
+
+        let Ok(mut hand) = hands.get_mut(data.row_ids[i])
+        else { continue; };
+
+        hand.state = if cards.len() < 5 {
+            HandGuessState::Incomplete
+        } else if guessed_hand == hand.poker_hand {
+            HandGuessState::Correct
+        } else {
+            HandGuessState::Wrong
+        }
     }
 }
 
@@ -180,4 +225,40 @@ pub fn clear_guesses(
 
     tile.guessed_suit = None;
     tile.guessed_value = None;
+}
+
+fn get_cards_in_column(layout_data: &LayoutData, tiles: &Query<&Tile>, column: usize) -> Vec<CardId> {
+    let mut cards = Vec::new();
+    for row in 0..5 {
+        let tile_id = layout_data.tile_ids[row][column];
+        let Ok(tile) = tiles.get(tile_id)
+        else { continue; };
+        let card = if tile.known {
+            tile.card
+        } else if let (Some(suit), Some(value)) = (tile.guessed_suit, tile.guessed_value) {
+            CardId::new(suit, value)
+        } else {
+            continue;
+        };
+        cards.push(card)
+    }
+    cards
+}
+
+fn get_cards_in_row(layout_data: &LayoutData, tiles: &Query<&Tile>, row: usize) -> Vec<CardId> {
+    let mut cards = Vec::new();
+    for column in 0..5 {
+        let tile_id = layout_data.tile_ids[row][column];
+        let Ok(tile) = tiles.get(tile_id)
+        else { continue; };
+        let card = if tile.known {
+            tile.card
+        } else if let (Some(suit), Some(value)) = (tile.guessed_suit, tile.guessed_value) {
+            CardId::new(suit, value)
+        } else {
+            continue;
+        };
+        cards.push(card)
+    }
+    cards
 }

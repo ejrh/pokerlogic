@@ -5,14 +5,14 @@ use bevy::color::Color;
 use bevy::DefaultPlugins;
 use bevy::ecs::system::Commands;
 use bevy::input::ButtonInput;
-use bevy::prelude::{on_message, Bundle, ChildOf, Click, Entity, FlexDirection, GridTrack, IntoScheduleConfigs, JustifyContent, KeyCode, Message, MessageReader, On, Pointer, Query, Res, ResMut, Resource};
+use bevy::prelude::{any_match_filter, on_message, Bundle, Changed, ChildOf, Click, Entity, FlexDirection, GridTrack, IntoScheduleConfigs, JustifyContent, KeyCode, Message, MessageReader, On, Pointer, Query, Res, ResMut, Resource};
 use bevy::text::{Font, FontSize, TextColor, TextFont};
 use bevy::ui::{percent, widget::Text, AlignContent, AlignItems, AlignSelf, BackgroundColor, BorderColor, Display, FocusPolicy, JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, UiRect, Val};
 use bevy::utils::default;
 
 use crate::cards::{Suit, Value};
 use crate::render::render_game;
-use crate::game::{Tile, restart_game, select_tile, Selection, guess_suit, guess_value, clear_guesses};
+use crate::game::{Tile, restart_game, select_tile, Selection, guess_suit, guess_value, clear_guesses, check_guesses};
 
 mod cards;
 mod poker;
@@ -22,6 +22,7 @@ mod render;
 #[derive(Resource)]
 struct LayoutData {
     font: Handle<Font>,
+    symbol_font: Handle<Font>,
     column_ids: Vec<Entity>,
     row_ids: Vec<Entity>,
     tile_ids: Vec<Vec<Entity>>,
@@ -31,6 +32,7 @@ impl Default for LayoutData {
     fn default() -> Self {
         LayoutData {
             font: Handle::default(),
+            symbol_font: Handle::default(),
             column_ids: vec![Entity::PLACEHOLDER; 5],
             row_ids: vec![Entity::PLACEHOLDER; 5],
             tile_ids: vec![vec![Entity::PLACEHOLDER; 5]; 5],
@@ -61,6 +63,7 @@ fn main() {
     app.add_systems(Update, handle_input);
     app.add_systems(Update, handle_game_messages.run_if(on_message::<GameMessage>));
     app.add_systems(Update, render_game.after(handle_game_messages));
+    app.add_systems(Update, check_guesses.run_if(any_match_filter::<Changed<Tile>>));
     app.add_observer(on_click);
 
     app.run();
@@ -72,6 +75,7 @@ fn setup_layout(
     mut data: ResMut<LayoutData>,
 ) {
     data.font = asset_server.load("fonts/FiraMono-Medium.ttf");
+    data.symbol_font = asset_server.load("fonts/JetBrainsMono-Medium.ttf");
 
     commands.spawn(Camera2d);
 

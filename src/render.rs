@@ -6,7 +6,7 @@ use bevy::utils::default;
 
 use crate::cards::SuitColour;
 use crate::LayoutData;
-use crate::game::{Hand, Tile};
+use crate::game::{Hand, HandGuessState, Tile};
 
 pub(crate) fn render_game(
     data: Res<LayoutData>,
@@ -76,10 +76,18 @@ pub(crate) fn render_game(
 
         commands.entity(column_id).despawn_children();
 
+        let (mark, text_colour) = match hand.state {
+            HandGuessState::Incomplete => ("", Color::srgb(0.6, 0.6, 0.6)),
+            HandGuessState::Correct => (" ✓", Color::srgb(0.2, 0.8, 0.2)),
+            HandGuessState::Wrong => (" ✗", Color::srgb(0.8, 0.2, 0.2)),
+        };
+
+        let text = format!("{}{}", hand.poker_hand.name(), mark);
+
         commands.spawn((
-            Text::new(hand.poker_hand.name()),
-            TextColor(Color::srgb(0.6, 0.6, 0.6)),
-            TextFont::from(data.font.clone()).with_font_size(FontSize::Px(24.0)),
+            Text::new(text),
+            TextColor(text_colour),
+            TextFont::from(data.symbol_font.clone()).with_font_size(FontSize::Px(24.0)),
             TextLayout::justify(Justify::Center),
             ChildOf(column_id),
         ));
@@ -93,10 +101,18 @@ pub(crate) fn render_game(
 
         commands.entity(row_id).despawn_children();
 
+        let (mark, text_colour) = match hand.state {
+            HandGuessState::Incomplete => ("", Color::srgb(0.6, 0.6, 0.6)),
+            HandGuessState::Correct => (" ✓", Color::srgb(0.2, 0.8, 0.2)),
+            HandGuessState::Wrong => (" ✗", Color::srgb(0.8, 0.2, 0.2)),
+        };
+
+        let text = format!("{}{}", hand.poker_hand.name(), mark);
+
         commands.spawn((
-            Text::new(hand.poker_hand.name()),
-            TextColor(Color::srgb(0.6, 0.6, 0.6)),
-            TextFont::from(data.font.clone()).with_font_size(FontSize::Px(24.0)),
+            Text::new(text),
+            TextColor(text_colour),
+            TextFont::from(data.symbol_font.clone()).with_font_size(FontSize::Px(24.0)),
             TextLayout::justify(Justify::Center),
             ChildOf(row_id),
         ));
