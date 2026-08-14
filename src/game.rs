@@ -4,7 +4,7 @@ use bevy::log::{info, warn};
 use bevy::prelude::{Commands, Component, In, Query, Res, Resource};
 use rand::seq::SliceRandom;
 
-use crate::LayoutData;
+use crate::{GameMessage, LayoutData};
 use crate::cards::{CardId, Stack, Suit, Value};
 use crate::poker::{identify_hand, PokerHand, HAND_INDICES, HAND_SIZE};
 
@@ -23,6 +23,7 @@ pub struct Tile {
     pub selected: bool,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ClueGuessState {
     Incomplete,
     Correct,
@@ -162,6 +163,16 @@ pub fn check_guesses(
         } else {
             ClueGuessState::Wrong
         }
+    }
+}
+
+pub fn check_for_victory(
+    clues: Query<&Clue>,
+    mut commands: Commands,
+) {
+    let all_correct = clues.iter().all(|clue| clue.state == ClueGuessState::Correct);
+    if all_correct {
+        commands.write_message(GameMessage::Victory);
     }
 }
 

@@ -1,22 +1,26 @@
 use bevy::app::{App, AppExit, Startup, Update};
 use bevy::asset::{AssetServer, Handle};
-use bevy::camera::Camera2d;
+use bevy::camera::{Camera, Camera2d, ClearColorConfig};
+use bevy::camera::visibility::RenderLayers;
 use bevy::color::Color;
 use bevy::DefaultPlugins;
 use bevy::ecs::system::Commands;
 use bevy::input::ButtonInput;
-use bevy::prelude::{any_match_filter, on_message, Bundle, Changed, ChildOf, Click, Entity, FlexDirection, GridTrack, IntoScheduleConfigs, JustifyContent, KeyCode, Message, MessageReader, On, Pointer, Query, Res, ResMut, Resource};
+use bevy::log::info;
+use bevy::prelude::{any_match_filter, on_message, Bundle, Changed, ChildOf, Click, Entity, FlexDirection, GridTrack, IntoScheduleConfigs, IsDefaultUiCamera, JustifyContent, KeyCode, Message, MessageReader, On, Pointer, Query, Res, ResMut, Resource};
 use bevy::text::{Font, FontSize, TextColor, TextFont};
 use bevy::ui::{percent, widget::Text, AlignContent, AlignItems, AlignSelf, BackgroundColor, Display, FocusPolicy, JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, UiRect, Val};
 use bevy::utils::default;
 
 use crate::cards::{Suit, Value};
+use crate::fireworks::{animate_fireworks, spawn_fireworks};
 use crate::render::{render_clues, render_tiles};
-use crate::game::{Tile, restart_game, select_tile, Selection, guess_suit, guess_value, clear_guesses, check_guesses};
+use crate::game::{Tile, restart_game, select_tile, Selection, guess_suit, guess_value, clear_guesses, check_guesses, Clue, check_for_victory};
 
 mod cards;
-mod poker;
+mod fireworks;
 mod game;
+mod poker;
 mod render;
 
 #[derive(Resource)]
@@ -40,7 +44,7 @@ impl Default for LayoutData {
     }
 }
 
-#[derive(Message)]
+#[derive(Debug, Message)]
 enum GameMessage {
     Restart,
     Quit,
@@ -48,6 +52,7 @@ enum GameMessage {
     GuessSuit(Suit),
     GuessValue(Value),
     ClearGuesses,
+    Victory,
 }
 
 fn main() {
@@ -64,6 +69,8 @@ fn main() {
     app.add_systems(Update, handle_game_messages.run_if(on_message::<GameMessage>));
     app.add_systems(Update, (render_tiles, render_clues).after(handle_game_messages));
     app.add_systems(Update, check_guesses.run_if(any_match_filter::<Changed<Tile>>));
+    app.add_systems(Update, check_for_victory.run_if(any_match_filter::<Changed<Clue>>));
+    app.add_systems(Update, animate_fireworks);
     app.add_observer(on_click);
 
     app.run();
@@ -77,7 +84,24 @@ fn setup_layout(
     data.font = asset_server.load("fonts/FiraMono-Medium.ttf");
     data.symbol_font = asset_server.load("fonts/JetBrainsMono-Medium.ttf");
 
-    commands.spawn(Camera2d);
+    commands.spawn((
+        Camera2d,
+        Camera {
+            order: 0,
+            ..default()
+        },
+        IsDefaultUiCamera,
+    ));
+
+    commands.spawn((
+        Camera2d,
+        Camera {
+            order: 1,
+            clear_color: ClearColorConfig::None,
+            ..default()
+        },
+        RenderLayers::layer(1),
+    ));
 
     let grid_template_columns = vec![
         GridTrack::fr(0.8),
@@ -243,6 +267,8 @@ fn handle_input(
         commands.write_message(GameMessage::GuessValue(Value::of_face('A')));
     } else if keyboard_input.any_just_pressed([KeyCode::Space, KeyCode::Backspace, KeyCode::Delete]) {
         commands.write_message(GameMessage::ClearGuesses);
+    } else if keyboard_input.just_pressed(KeyCode::KeyX) {
+        commands.write_message(GameMessage::Victory);
     }
 }
 
@@ -267,6 +293,7 @@ fn handle_game_messages(
     mut commands: Commands,
 ) {
     for message in messages.read() {
+        info!("Handling: {message:?}");
         match message {
             GameMessage::Restart => commands.run_system_cached(restart_game),
             GameMessage::Quit => _ = commands.write_message(AppExit::Success),
@@ -274,6 +301,7 @@ fn handle_game_messages(
             GameMessage::GuessSuit(suit) => commands.run_system_cached_with(guess_suit, *suit),
             GameMessage::GuessValue(value) => commands.run_system_cached_with(guess_value, *value),
             GameMessage::ClearGuesses => commands.run_system_cached(clear_guesses),
+            GameMessage::Victory => commands.run_system_cached(spawn_fireworks),
         }
     }
 }

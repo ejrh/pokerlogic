@@ -79,7 +79,7 @@ pub fn render_tiles(
     }
 }
 
-pub(crate) fn render_clues(
+pub fn render_clues(
     data: Res<LayoutData>,
     clues: Query<&Clue, Changed<Clue>>,
     mut commands: Commands
@@ -109,3 +109,4 @@ pub(crate) fn render_clues(
         ));
     }
 }
+
