@@ -1,5 +1,5 @@
 use bevy::color::Color;
-use bevy::prelude::{Changed, ChildOf, Commands, Query, Res, Text};
+use bevy::prelude::{BorderColor, Changed, ChildOf, Commands, Query, Res, Text};
 use bevy::text::{FontSize, Justify, TextColor, TextFont, TextLayout};
 use bevy::ui::{BackgroundColor, Node, PositionType, Val};
 use bevy::utils::default;
@@ -23,14 +23,25 @@ pub(crate) fn render_game(
 
             commands.entity(tile_id).despawn_children();
 
-            let bg = if tile.selected {
-                Color::srgb(0.0, 0.0, 0.0)
+            let bg = if tile.known {
+                Color::srgb(0.9, 0.9, 0.9)
+            } else if tile.selected {
+                Color::srgb(0.6, 0.9, 0.6)
             } else {
-                Color::srgb(0.0, 0.1, 0.0)
+                Color::srgb(0.8, 0.8, 0.8)
+            };
+
+            let border_color = if tile.selected {
+                Color::srgb(0.1, 0.8, 0.1)
+            } else {
+                Color::srgb(0.1, 0.1, 0.11)
             };
 
             commands.entity(tile_id)
-                .insert(BackgroundColor(bg));
+                .insert((
+                    BackgroundColor(bg),
+                    BorderColor::all(border_color),
+                ));
 
             let suit_str;
             let value_str;
@@ -40,12 +51,12 @@ pub(crate) fn render_game(
                 value_str = tile.card.value.symbol();
                 colour = match tile.card.suit.colour() {
                     SuitColour::Red => Color::srgb(0.8, 0.1, 0.1),
-                    SuitColour::Black => Color::srgb(0.7, 0.7, 0.7),
+                    SuitColour::Black => Color::srgb(0.1, 0.1, 0.1),
                 };
             } else {
                 suit_str = tile.guessed_suit.map_or("", |s| s.symbol());
                 value_str = tile.guessed_value.map_or("", |v| v.symbol());
-                colour = Color::srgb(0.4, 0.4, 0.4);
+                colour = Color::srgb(0.3, 0.3, 0.3);
             }
 
             commands.spawn((

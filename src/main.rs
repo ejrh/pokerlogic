@@ -6,9 +6,8 @@ use bevy::DefaultPlugins;
 use bevy::ecs::system::Commands;
 use bevy::input::ButtonInput;
 use bevy::prelude::{any_match_filter, on_message, Bundle, Changed, ChildOf, Click, Entity, FlexDirection, GridTrack, IntoScheduleConfigs, JustifyContent, KeyCode, Message, MessageReader, On, Pointer, Query, Res, ResMut, Resource};
-use bevy::prelude::KeyCode::KeyC;
 use bevy::text::{Font, FontSize, TextColor, TextFont};
-use bevy::ui::{percent, widget::Text, AlignContent, AlignItems, AlignSelf, BackgroundColor, BorderColor, Display, FocusPolicy, JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, UiRect, Val};
+use bevy::ui::{percent, widget::Text, AlignContent, AlignItems, AlignSelf, BackgroundColor, Display, FocusPolicy, JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, UiRect, Val};
 use bevy::utils::default;
 
 use crate::cards::{Suit, Value};
@@ -140,12 +139,11 @@ fn setup_layout(
                 display: Display::Flex,
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                border: UiRect::all(Val::Px(1.0)),
+                border: UiRect::all(Val::Px(2.0)),
                 margin: UiRect::all(Val::Px(8.0)),
                 padding: UiRect::all(Val::Px(8.0)),
                 ..default()
             },
-            BorderColor::all(Color::srgb(0.0, 0.5, 0.0)),
             FocusPolicy::Block,
         )
     }
