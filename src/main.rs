@@ -1,30 +1,28 @@
 use bevy::app::{App, AppExit, Startup, Update};
-use bevy::asset::{AssetServer, Handle};
+use bevy::asset::AssetServer;
 use bevy::camera::visibility::RenderLayers;
 use bevy::camera::{Camera, Camera2d, ClearColorConfig};
 use bevy::color::Color;
 use bevy::ecs::{
     bundle::Bundle,
-    entity::Entity,
     hierarchy::ChildOf,
-    message::{Message, MessageReader},
+    message::MessageReader,
     observer::On,
     query::Changed,
-    resource::Resource,
     schedule::{common_conditions::{any_match_filter, on_message}, IntoScheduleConfigs},
     system::{Commands, Query, Res, ResMut},
 };
 use bevy::input::{keyboard::KeyCode, ButtonInput};
 use bevy::log::info;
 use bevy::picking::events::{Click, Pointer};
-use bevy::text::{Font, FontSize, TextColor, TextFont};
+use bevy::text::{FontSize, TextColor, TextFont};
 use bevy::ui::{percent, widget::Text, AlignContent, AlignItems, AlignSelf, BackgroundColor, BorderRadius, Display, FlexDirection, FocusPolicy, GridPlacement, GridTrack, IsDefaultUiCamera, JustifyContent, JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, UiRect, Val};
 use bevy::utils::default;
 use bevy::DefaultPlugins;
 
 use crate::cards::{Suit, Value};
 use crate::fireworks::{animate_fireworks, expire_fireworks, launch_fireworks};
-use crate::game::{check_for_victory, check_guesses, clear_guesses, guess_suit, guess_value, restart_game, select_tile, solve_all, Clue, Selection, Tile};
+use crate::game::{check_for_victory, check_guesses, clear_guesses, guess_suit, guess_value, restart_game, select_tile, solve_all, Clue, GameMessage, LayoutData, Selection, Tile};
 use crate::render::{render_clues, render_tiles};
 
 mod cards;
@@ -32,43 +30,6 @@ mod fireworks;
 mod game;
 mod poker;
 mod render;
-
-#[derive(Resource)]
-struct LayoutData {
-    font: Handle<Font>,
-    symbol_font: Handle<Font>,
-    top_ids: Vec<Entity>,
-    left_ids: Vec<Entity>,
-    right_ids: Vec<Entity>,
-    bottom_ids: Vec<Entity>,
-    tile_ids: Vec<Vec<[Entity; 2]>>,
-}
-
-impl Default for LayoutData {
-    fn default() -> Self {
-        LayoutData {
-            font: Handle::default(),
-            symbol_font: Handle::default(),
-            top_ids: vec![Entity::PLACEHOLDER; 5],
-            left_ids: vec![Entity::PLACEHOLDER; 5],
-            right_ids: vec![Entity::PLACEHOLDER; 5],
-            bottom_ids: vec![Entity::PLACEHOLDER; 5],
-            tile_ids: vec![vec![[Entity::PLACEHOLDER; 2]; 5]; 5],
-        }
-    }
-}
-
-#[derive(Debug, Message)]
-enum GameMessage {
-    Restart,
-    Quit,
-    SelectTile,
-    GuessSuit(Suit),
-    GuessValue(Value),
-    ClearGuesses,
-    SolveAll,
-    Victory,
-}
 
 fn main() {
     let mut app = App::new();
@@ -227,6 +188,22 @@ fn setup_layout(
         )
     }
 
+    fn make_spare() -> impl Bundle {
+        (
+            Node {
+                display: Display::Flex,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(Val::Px(2.0)).with_bottom(Val::Px(0.0)),
+                padding: UiRect::all(Val::Px(8.0)),
+                margin: UiRect::all(Val::Px(4.0)),
+                border_radius: BorderRadius::top(Val::Px(10.0)),
+                ..default()
+            },
+            FocusPolicy::Block,
+        )
+    }
+
     commands.spawn((
         Node::default(), ChildOf(board_id),
     ));
@@ -263,9 +240,10 @@ fn setup_layout(
         )).id();
     }
 
-    commands.spawn((
-        Node::default(), ChildOf(board_id),
-    ));
+    data.spare_ids[0] =commands.spawn((
+        make_spare(),
+        ChildOf(board_id),
+    )).id();
 
     for i in 0..5 {
         data.bottom_ids[i] = commands.spawn((
@@ -273,6 +251,11 @@ fn setup_layout(
             ChildOf(board_id),
         )).id();
     }
+
+    data.spare_ids[1] =commands.spawn((
+        make_spare(),
+        ChildOf(board_id),
+    )).id();
 
     // Instructions at bottom
     commands.spawn((
@@ -361,7 +344,7 @@ fn on_click(
 
     println!("Clicked tile");
 
-    selection.position = tile.position;
+    selection.position = Some(tile.position);
 
     commands.write_message(GameMessage::SelectTile);
 }

@@ -1,27 +1,47 @@
 use std::collections::HashMap;
 use std::mem::MaybeUninit;
 
+use bevy::asset::Handle;
 use bevy::ecs::{
     component::Component,
     entity::Entity,
+    message::Message,
     resource::Resource,
     system::{Commands, In, Query, Res},
 };
 use bevy::log::{info, warn};
+use bevy::text::Font;
 use rand::seq::SliceRandom;
 
 use crate::cards::{CardId, Stack, Suit, Value};
 use crate::poker::{identify_hand, PokerHand, HAND_INDICES, HAND_SIZE};
-use crate::{GameMessage, LayoutData};
+
+#[derive(Debug, Message)]
+pub enum GameMessage {
+    Restart,
+    Quit,
+    SelectTile,
+    GuessSuit(Suit),
+    GuessValue(Value),
+    ClearGuesses,
+    SolveAll,
+    Victory,
+}
+
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+pub enum TilePosition {
+    Board(usize, usize, usize),
+    Spare(usize),
+}
 
 #[derive(Default, Resource)]
 pub struct Selection {
-    pub position: (usize, usize, usize),
+    pub position: Option<TilePosition>,
 }
 
 #[derive(Component)]
 pub struct Tile {
-    pub position: (usize, usize, usize),
+    pub position: TilePosition,
     pub card: CardId,
     pub known: bool,
     pub guessed_suit: Option<Suit>,
@@ -75,13 +95,49 @@ pub struct Clue {
     pub location: ClueLocation,
 }
 
+#[derive(Resource)]
+pub struct LayoutData {
+    pub font: Handle<Font>,
+    pub symbol_font: Handle<Font>,
+    pub top_ids: Vec<Entity>,
+    pub left_ids: Vec<Entity>,
+    pub right_ids: Vec<Entity>,
+    pub bottom_ids: Vec<Entity>,
+    pub tile_ids: Vec<Vec<[Entity; 2]>>,
+    pub spare_ids: Vec<Entity>,
+}
+
+impl LayoutData {
+    pub fn get_tile_id(&self, position: TilePosition) -> Entity {
+        match position {
+            TilePosition::Board(row, column, plane) => self.tile_ids[row][column][plane],
+            TilePosition::Spare(index) => self.spare_ids[index],
+        }
+    }
+}
+
+impl Default for LayoutData {
+    fn default() -> Self {
+        LayoutData {
+            font: Handle::default(),
+            symbol_font: Handle::default(),
+            top_ids: vec![Entity::PLACEHOLDER; 5],
+            left_ids: vec![Entity::PLACEHOLDER; 5],
+            right_ids: vec![Entity::PLACEHOLDER; 5],
+            bottom_ids: vec![Entity::PLACEHOLDER; 5],
+            tile_ids: vec![vec![[Entity::PLACEHOLDER; 2]; 5]; 5],
+            spare_ids: vec![Entity::PLACEHOLDER; 2],
+        }
+    }
+}
+
 pub fn restart_game(
     data: Res<LayoutData>,
     mut commands: Commands,
 ) {
     info!("Restarting game");
 
-    let (cards, top_hands, left_hands, right_hands, bottom_hands) = make_game();
+    let (cards, spares, top_hands, left_hands, right_hands, bottom_hands) = make_game();
 
     let mut missings = (0..5).collect::<Vec<_>>();
     missings.shuffle(&mut rand::rng());
@@ -92,7 +148,7 @@ pub fn restart_game(
                 let card = cards[i][j][k];
                 let known = missings[i] != j;
                 let new_tile = Tile {
-                    position: (i, j, k),
+                    position: TilePosition::Board(i, j, k),
                     card,
                     known,
                     guessed_suit: None,
@@ -107,7 +163,7 @@ pub fn restart_game(
         }
     }
 
-    fn build_clue(commands: &mut Commands, constr: fn(usize) -> ClueLocation, hands: &[PokerHand], ids: &[Entity]) {
+    fn build_clues(commands: &mut Commands, constr: fn(usize) -> ClueLocation, hands: &[PokerHand], ids: &[Entity]) {
         for i in 0..5 {
             let clue = Clue {
                 poker_hand: hands[i],
@@ -119,13 +175,30 @@ pub fn restart_game(
         }
     }
 
-    build_clue(&mut commands, ClueLocation::Top, &top_hands, &data.top_ids);
-    build_clue(&mut commands, ClueLocation::Left, &left_hands, &data.left_ids);
-    build_clue(&mut commands, ClueLocation::Right, &right_hands, &data.right_ids);
-    build_clue(&mut commands, ClueLocation::Bottom, &bottom_hands, &data.bottom_ids);
+    build_clues(&mut commands, ClueLocation::Top, &top_hands, &data.top_ids);
+    build_clues(&mut commands, ClueLocation::Left, &left_hands, &data.left_ids);
+    build_clues(&mut commands, ClueLocation::Right, &right_hands, &data.right_ids);
+    build_clues(&mut commands, ClueLocation::Bottom, &bottom_hands, &data.bottom_ids);
+
+    for (index, card) in spares.iter().enumerate() {
+        let new_tile = Tile {
+            position: TilePosition::Spare(index),
+            card: *card,
+            known: true,
+            guessed_suit: None,
+            guessed_value: None,
+            selected: false,
+            duplicate: false,
+        };
+
+        commands.entity(data.spare_ids[index])
+            .insert(new_tile);
+    }
+
+    commands.insert_resource(Selection::default());
 }
 
-fn make_game() -> ([[[CardId; 2]; 5]; 5], [PokerHand; 5], [PokerHand; 5], [PokerHand; 5], [PokerHand; 5]) {
+fn make_game() -> ([[[CardId; 2]; 5]; 5], Vec<CardId>, [PokerHand; 5], [PokerHand; 5], [PokerHand; 5], [PokerHand; 5]) {
     let mut cards: [[[MaybeUninit<CardId>; 2]; 5]; 5] = [[[MaybeUninit::uninit(); 2]; 5]; 5];
 
     let mut retries = 0;
@@ -180,7 +253,8 @@ fn make_game() -> ([[[CardId; 2]; 5]; 5], [PokerHand; 5], [PokerHand; 5], [Poker
             continue;
         }
 
-        return (cards, top_hands, left_hands, right_hands, bottom_hands);
+        let spares = pack.pop_all();
+        return (cards, spares, top_hands, left_hands, right_hands, bottom_hands);
     }
 }
 
@@ -240,7 +314,7 @@ pub fn select_tile(
     info!("Selecting tile");
 
     for mut t in tiles.iter_mut() {
-        let should_select = t.position == selection.position;
+        let should_select = matches!(selection.position, Some(pos) if pos == t.position);
 
         if t.selected != should_select {
             t.selected = should_select;
@@ -256,8 +330,9 @@ pub fn guess_suit(
 ) {
     info!("Guessing suit: {}", suit.symbol());
 
-    let tile_id = layout_data.tile_ids[selection.position.0][selection.position.1][selection.position.2];
-    let Ok(mut tile) = tiles.get_mut(tile_id)
+    let Some(mut tile) = selection.position
+        .map(|p| layout_data.get_tile_id(p))
+        .and_then(|id| tiles.get_mut(id).ok())
     else { return; };
 
     if tile.known { return; }
@@ -273,8 +348,9 @@ pub fn guess_value(
 ) {
     info!("Guessing value: {}", value.symbol());
 
-    let tile_id = layout_data.tile_ids[selection.position.0][selection.position.1][selection.position.2];
-    let Ok(mut tile) = tiles.get_mut(tile_id)
+    let Some(mut tile) = selection.position
+        .map(|p| layout_data.get_tile_id(p))
+        .and_then(|id| tiles.get_mut(id).ok())
     else { return; };
 
     if tile.known { return; }
@@ -289,8 +365,9 @@ pub fn clear_guesses(
 ) {
     info!("Clearing guesses");
 
-    let tile_id = layout_data.tile_ids[selection.position.0][selection.position.1][selection.position.2];
-    let Ok(mut tile) = tiles.get_mut(tile_id)
+    let Some(mut tile) = selection.position
+        .map(|p| layout_data.get_tile_id(p))
+        .and_then(|id| tiles.get_mut(id).ok())
     else { return; };
 
     if tile.known { return; }
@@ -311,7 +388,7 @@ pub fn solve_all(
 fn get_cards_for_clue(layout_data: &LayoutData, tiles: Query<&Tile>, location: ClueLocation) -> Vec<CardId> {
     let mut cards = Vec::new();
     for (row, column, plane) in location.tile_positions() {
-        let tile_id = layout_data.tile_ids[row][column][plane];
+        let tile_id = layout_data.get_tile_id(TilePosition::Board(row, column, plane));
 
         let Ok(tile) = tiles.get(tile_id)
         else { continue; };

@@ -110,4 +110,9 @@ impl Stack {
     pub fn pop(&mut self) -> Option<CardId> {
         self.cards.pop()
     }
+
+    pub fn pop_all(&mut self) -> Vec<CardId> {
+        let cards = std::mem::take(&mut self.cards);
+        cards
+    }
 }
