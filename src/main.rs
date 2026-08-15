@@ -13,7 +13,7 @@ use bevy::ui::{percent, widget::Text, AlignContent, AlignItems, AlignSelf, Backg
 use bevy::utils::default;
 
 use crate::cards::{Suit, Value};
-use crate::fireworks::{animate_fireworks, spawn_fireworks};
+use crate::fireworks::{animate_fireworks, expire_fireworks, launch_fireworks};
 use crate::render::{render_clues, render_tiles};
 use crate::game::{Tile, restart_game, select_tile, Selection, guess_suit, guess_value, clear_guesses, check_guesses, Clue, check_for_victory, solve_all};
 
@@ -75,7 +75,7 @@ fn main() {
     app.add_systems(Update, (render_tiles, render_clues).after(handle_game_messages));
     app.add_systems(Update, check_guesses.run_if(any_match_filter::<Changed<Tile>>));
     app.add_systems(Update, check_for_victory.run_if(any_match_filter::<Changed<Clue>>));
-    app.add_systems(Update, animate_fireworks);
+    app.add_systems(Update, (animate_fireworks, expire_fireworks).chain());
     app.add_observer(on_click);
 
     app.run();
@@ -370,7 +370,7 @@ fn handle_game_messages(
             GameMessage::GuessValue(value) => commands.run_system_cached_with(guess_value, *value),
             GameMessage::ClearGuesses => commands.run_system_cached(clear_guesses),
             GameMessage::SolveAll => commands.run_system_cached(solve_all),
-            GameMessage::Victory => commands.run_system_cached(spawn_fireworks),
+            GameMessage::Victory => commands.run_system_cached(launch_fireworks),
         }
     }
 }
