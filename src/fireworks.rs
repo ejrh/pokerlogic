@@ -3,9 +3,17 @@ use std::ops::Range;
 use bevy::asset::Assets;
 use bevy::camera::visibility::RenderLayers;
 use bevy::color::Color;
-use bevy::math::Vec3;
+use bevy::ecs::{
+    component::Component,
+    entity::Entity,
+    query::With,
+    system::{Commands, In, Query, Res, ResMut, SystemInput},
+};
+use bevy::math::{primitives::Circle, Vec3};
 use bevy::mesh::{Mesh, Mesh2d};
-use bevy::prelude::{Circle, ColorMaterial, Commands, Component, Entity, In, MeshMaterial2d, Query, Res, ResMut, SystemInput, Time, Transform, With};
+use bevy::sprite_render::{ColorMaterial, MeshMaterial2d};
+use bevy::time::Time;
+use bevy::transform::components::Transform;
 use rand::RngExt;
 
 #[derive(Component)]

@@ -1,12 +1,16 @@
 use bevy::color::Color;
-use bevy::prelude::{BorderColor, Changed, ChildOf, Commands, Query, Res, Text};
+use bevy::ecs::{
+    hierarchy::ChildOf,
+    query::Changed,
+    system::{Commands, Query, Res},
+};
 use bevy::text::{FontSize, Justify, TextColor, TextFont, TextLayout};
-use bevy::ui::{BackgroundColor, Node, PositionType, Val};
+use bevy::ui::{widget::Text, BackgroundColor, BorderColor, Node, PositionType, Val};
 use bevy::utils::default;
 
 use crate::cards::SuitColour;
-use crate::LayoutData;
 use crate::game::{Clue, ClueGuessState, ClueLocation, Tile};
+use crate::LayoutData;
 
 pub fn render_tiles(
     data: Res<LayoutData>,
@@ -42,7 +46,7 @@ pub fn render_tiles(
                         BackgroundColor(bg),
                         BorderColor::all(border_color),
                     ));
-                
+
                 let suit_str;
                 let value_str;
                 let colour;

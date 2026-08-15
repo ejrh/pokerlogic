@@ -1,21 +1,31 @@
 use bevy::app::{App, AppExit, Startup, Update};
 use bevy::asset::{AssetServer, Handle};
-use bevy::camera::{Camera, Camera2d, ClearColorConfig};
 use bevy::camera::visibility::RenderLayers;
+use bevy::camera::{Camera, Camera2d, ClearColorConfig};
 use bevy::color::Color;
-use bevy::DefaultPlugins;
-use bevy::ecs::system::Commands;
-use bevy::input::ButtonInput;
+use bevy::ecs::{
+    bundle::Bundle,
+    entity::Entity,
+    hierarchy::ChildOf,
+    message::{Message, MessageReader},
+    observer::On,
+    query::Changed,
+    resource::Resource,
+    schedule::{common_conditions::{any_match_filter, on_message}, IntoScheduleConfigs},
+    system::{Commands, Query, Res, ResMut},
+};
+use bevy::input::{keyboard::KeyCode, ButtonInput};
 use bevy::log::info;
-use bevy::prelude::{any_match_filter, on_message, BorderRadius, Bundle, Changed, ChildOf, Click, Entity, FlexDirection, GridTrack, IntoScheduleConfigs, IsDefaultUiCamera, JustifyContent, KeyCode, Message, MessageReader, On, Pointer, Query, Res, ResMut, Resource};
+use bevy::picking::events::{Click, Pointer};
 use bevy::text::{Font, FontSize, TextColor, TextFont};
-use bevy::ui::{percent, widget::Text, AlignContent, AlignItems, AlignSelf, BackgroundColor, Display, FocusPolicy, GridPlacement, JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, UiRect, Val};
+use bevy::ui::{percent, widget::Text, AlignContent, AlignItems, AlignSelf, BackgroundColor, BorderRadius, Display, FlexDirection, FocusPolicy, GridPlacement, GridTrack, IsDefaultUiCamera, JustifyContent, JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, UiRect, Val};
 use bevy::utils::default;
+use bevy::DefaultPlugins;
 
 use crate::cards::{Suit, Value};
 use crate::fireworks::{animate_fireworks, expire_fireworks, launch_fireworks};
+use crate::game::{check_for_victory, check_guesses, clear_guesses, guess_suit, guess_value, restart_game, select_tile, solve_all, Clue, Selection, Tile};
 use crate::render::{render_clues, render_tiles};
-use crate::game::{Tile, restart_game, select_tile, Selection, guess_suit, guess_value, clear_guesses, check_guesses, Clue, check_for_victory, solve_all};
 
 mod cards;
 mod fireworks;
