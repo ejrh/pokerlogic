@@ -10,7 +10,7 @@ use bevy::ui::{widget::Text, BackgroundColor, BorderColor, Node, PositionType, V
 use bevy::utils::default;
 
 use crate::cards::SuitColour;
-use crate::game::{Clue, ClueGuessState, ClueLocation, Tile, TilePosition};
+use crate::game::{Clue, ClueGuessState, ClueLocation, Tile};
 use crate::LayoutData;
 
 pub fn render_tiles(
@@ -94,24 +94,8 @@ pub fn render_tiles(
         ));
     }
 
-    for i in 0..5 {
-        for j in 0..5 {
-            for k in 0..2 {
-                let tile_id = data.get_tile_id(TilePosition::Board(i, j, k));
-
-                let Ok(tile) = tiles.get(tile_id)
-                else { continue; };
-
-                render_tile(&data, &mut commands, tile_id, tile);
-            }
-        }
-    }
-
-    for index in 0..2 {
-        let tile_id = data.get_tile_id(TilePosition::Spare(index));
-
-        let Ok(tile) = tiles.get(tile_id)
-        else { continue; };
+    for tile in tiles {
+        let tile_id = data.get_tile_id(tile.position);
 
         render_tile(&data, &mut commands, tile_id, tile);
     }

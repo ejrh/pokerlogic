@@ -22,7 +22,7 @@ use bevy::DefaultPlugins;
 
 use crate::cards::{Suit, Value};
 use crate::fireworks::{animate_fireworks, expire_fireworks, launch_fireworks};
-use crate::game::{check_for_victory, check_guesses, clear_guesses, guess_suit, guess_value, restart_game, select_tile, solve_all, Clue, GameMessage, LayoutData, Selection, Tile};
+use crate::game::{check_for_victory, check_guesses, clear_guesses, guess_suit, guess_value, restart_game, select_tile, solve_all, Clue, GameMessage, LayoutData, Selection, Tile, CLUE_INDICES};
 use crate::render::{render_clues, render_tiles};
 
 mod cards;
@@ -208,7 +208,7 @@ fn setup_layout(
         Node::default(), ChildOf(board_id),
     ));
 
-    for i in 0..5 {
+    for i in CLUE_INDICES {
         data.top_ids[i] = commands.spawn((
             make_heading(2, true),
             ChildOf(board_id),
@@ -219,12 +219,12 @@ fn setup_layout(
         Node::default(), ChildOf(board_id),
     ));
 
-    for i in 0..5 {
+    for i in CLUE_INDICES {
         data.left_ids[i] = commands.spawn((
             make_heading(1, true),
             ChildOf(board_id),
         )).id();
-        for j in 0..5 {
+        for j in CLUE_INDICES {
             data.tile_ids[i][j][0] = commands.spawn((
                 make_card(true),
                 ChildOf(board_id),
@@ -245,7 +245,7 @@ fn setup_layout(
         ChildOf(board_id),
     )).id();
 
-    for i in 0..5 {
+    for i in CLUE_INDICES {
         data.bottom_ids[i] = commands.spawn((
             make_heading(2, false),
             ChildOf(board_id),

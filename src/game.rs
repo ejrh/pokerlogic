@@ -13,8 +13,14 @@ use bevy::log::{info, warn};
 use bevy::text::Font;
 use rand::seq::SliceRandom;
 
-use crate::cards::{CardId, Stack, Suit, Value};
-use crate::poker::{identify_hand, PokerHand, HAND_INDICES, HAND_SIZE};
+use crate::cards::{CardId, Stack, Suit, Value, FULL_PACK_SIZE};
+use crate::poker::{identify_hand, PokerHand, NUM_HAND_TYPES, POKER_HAND_INDICES, POKER_HAND_SIZE};
+
+pub const CLUES_PER_DIRECTION: usize = POKER_HAND_SIZE;
+pub const CLUE_INDICES: [usize; CLUES_PER_DIRECTION] = POKER_HAND_INDICES;
+pub const NUM_PLANES: usize = 2;
+pub const PLANE_INDICES: [usize; NUM_PLANES] = [0, 1];
+pub const NUM_SPARES: usize = FULL_PACK_SIZE - CLUES_PER_DIRECTION * CLUES_PER_DIRECTION * NUM_PLANES;
 
 #[derive(Debug, Message)]
 pub enum GameMessage {
@@ -78,12 +84,12 @@ pub enum ClueLocation {
 }
 
 impl ClueLocation {
-    fn tile_positions(&self) -> [(usize, usize, usize); HAND_SIZE] {
+    fn tile_positions(&self) -> [(usize, usize, usize); POKER_HAND_SIZE] {
         match self {
-            ClueLocation::Top(column) => HAND_INDICES.map(|row| (row, *column, 0)),
-            ClueLocation::Left(row) => HAND_INDICES.map(|column| (*row, column, 0)),
-            ClueLocation::Right(row) => HAND_INDICES.map(|column| (*row, column, 1)),
-            ClueLocation::Bottom(column) => HAND_INDICES.map(|row| (row, *column, 1)),
+            ClueLocation::Top(column) => CLUE_INDICES.map(|row| (row, *column, 0)),
+            ClueLocation::Left(row) => CLUE_INDICES.map(|column| (*row, column, 0)),
+            ClueLocation::Right(row) => CLUE_INDICES.map(|column| (*row, column, 1)),
+            ClueLocation::Bottom(column) => CLUE_INDICES.map(|row| (row, *column, 1)),
         }
     }
 }
@@ -121,12 +127,12 @@ impl Default for LayoutData {
         LayoutData {
             font: Handle::default(),
             symbol_font: Handle::default(),
-            top_ids: vec![Entity::PLACEHOLDER; 5],
-            left_ids: vec![Entity::PLACEHOLDER; 5],
-            right_ids: vec![Entity::PLACEHOLDER; 5],
-            bottom_ids: vec![Entity::PLACEHOLDER; 5],
-            tile_ids: vec![vec![[Entity::PLACEHOLDER; 2]; 5]; 5],
-            spare_ids: vec![Entity::PLACEHOLDER; 2],
+            top_ids: vec![Entity::PLACEHOLDER; CLUES_PER_DIRECTION],
+            left_ids: vec![Entity::PLACEHOLDER; CLUES_PER_DIRECTION],
+            right_ids: vec![Entity::PLACEHOLDER; CLUES_PER_DIRECTION],
+            bottom_ids: vec![Entity::PLACEHOLDER; CLUES_PER_DIRECTION],
+            tile_ids: vec![vec![[Entity::PLACEHOLDER; NUM_PLANES]; CLUES_PER_DIRECTION]; CLUES_PER_DIRECTION],
+            spare_ids: vec![Entity::PLACEHOLDER; NUM_SPARES],
         }
     }
 }
@@ -139,12 +145,12 @@ pub fn restart_game(
 
     let (cards, spares, top_hands, left_hands, right_hands, bottom_hands) = make_game();
 
-    let mut missings = (0..5).collect::<Vec<_>>();
+    let mut missings = CLUE_INDICES.clone();
     missings.shuffle(&mut rand::rng());
 
-    for i in 0..5 {
-        for j in 0..5 {
-            for k in 0..2 {
+    for i in CLUE_INDICES {
+        for j in CLUE_INDICES {
+            for k in PLANE_INDICES {
                 let card = cards[i][j][k];
                 let known = missings[i] != j;
                 let new_tile = Tile {
@@ -164,7 +170,7 @@ pub fn restart_game(
     }
 
     fn build_clues(commands: &mut Commands, constr: fn(usize) -> ClueLocation, hands: &[PokerHand], ids: &[Entity]) {
-        for i in 0..5 {
+        for i in CLUE_INDICES {
             let clue = Clue {
                 poker_hand: hands[i],
                 state: ClueGuessState::Incomplete,
@@ -198,8 +204,8 @@ pub fn restart_game(
     commands.insert_resource(Selection::default());
 }
 
-fn make_game() -> ([[[CardId; 2]; 5]; 5], Vec<CardId>, [PokerHand; 5], [PokerHand; 5], [PokerHand; 5], [PokerHand; 5]) {
-    let mut cards: [[[MaybeUninit<CardId>; 2]; 5]; 5] = [[[MaybeUninit::uninit(); 2]; 5]; 5];
+fn make_game() -> ([[[CardId; NUM_PLANES]; CLUES_PER_DIRECTION]; CLUES_PER_DIRECTION], Vec<CardId>, [PokerHand; CLUES_PER_DIRECTION], [PokerHand; CLUES_PER_DIRECTION], [PokerHand; CLUES_PER_DIRECTION], [PokerHand; CLUES_PER_DIRECTION]) {
+    let mut cards: [[[MaybeUninit<CardId>; NUM_PLANES]; CLUES_PER_DIRECTION]; CLUES_PER_DIRECTION] = [[[MaybeUninit::uninit(); NUM_PLANES]; CLUES_PER_DIRECTION]; CLUES_PER_DIRECTION];
 
     let mut retries = 0;
 
@@ -207,9 +213,9 @@ fn make_game() -> ([[[CardId; 2]; 5]; 5], Vec<CardId>, [PokerHand; 5], [PokerHan
         let mut pack = Stack::full_pack();
         pack.shuffle();
 
-        for i in 0..5 {
-            for j in 0..5 {
-                for k in 0..2 {
+        for i in CLUE_INDICES {
+            for j in CLUE_INDICES {
+                for k in PLANE_INDICES {
                     let card = pack.pop().expect("nonempty pack");
                     cards[i][j][k].write(card);
                 }
@@ -222,9 +228,9 @@ fn make_game() -> ([[[CardId; 2]; 5]; 5], Vec<CardId>, [PokerHand; 5], [PokerHan
                     |p| unsafe { p.assume_init() }
         )));
 
-        fn build_hands(cards: &[[[CardId; 2]; 5]; 5], constr: fn(usize) -> ClueLocation, hand_counts: &mut[i32]) -> [PokerHand; 5] {
-            let mut hands: [MaybeUninit<PokerHand>; 5] = [MaybeUninit::uninit(); 5];
-            for i in 0..5 {
+        fn build_hands(cards: &[[[CardId; NUM_PLANES]; CLUES_PER_DIRECTION]; CLUES_PER_DIRECTION], constr: fn(usize) -> ClueLocation, hand_counts: &mut[i32]) -> [PokerHand; CLUES_PER_DIRECTION] {
+            let mut hands: [MaybeUninit<PokerHand>; CLUES_PER_DIRECTION] = [MaybeUninit::uninit(); CLUES_PER_DIRECTION];
+            for i in CLUE_INDICES {
                 let loc = constr(i);
                 let mut cards = loc.tile_positions().map(|(i, j, k)| cards[i][j][k]);
                 let poker_hand = identify_hand(&mut cards);
@@ -235,7 +241,7 @@ fn make_game() -> ([[[CardId; 2]; 5]; 5], Vec<CardId>, [PokerHand; 5], [PokerHan
             hands.map(|h| unsafe { h.assume_init() })
         }
 
-        let mut hand_counts = [0; 11];
+        let mut hand_counts = [0; NUM_HAND_TYPES];
 
         let top_hands = build_hands(&cards, ClueLocation::Top, &mut hand_counts);
         let left_hands = build_hands(&cards, ClueLocation::Left, &mut hand_counts);
@@ -267,7 +273,7 @@ pub fn check_guesses(
         let mut cards = get_cards_for_clue(&data, tiles.as_readonly(), clue.location);
         let guessed_hand = identify_hand(&mut cards);
 
-        clue.state = if cards.len() < 5 {
+        clue.state = if cards.len() < POKER_HAND_SIZE {
             ClueGuessState::Incomplete
         } else if guessed_hand == clue.poker_hand {
             ClueGuessState::Correct

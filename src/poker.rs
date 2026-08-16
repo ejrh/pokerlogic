@@ -1,7 +1,8 @@
-use crate::cards::{CardId, Value};
+use crate::cards::{CardId, Value, CARD_VALUES, MIN_CARD_VALUE};
 
-pub const HAND_SIZE: usize = 5;
-pub const HAND_INDICES: [usize; HAND_SIZE] = [0, 1, 2, 3, 4];
+pub const POKER_HAND_SIZE: usize = 5;
+pub const POKER_HAND_INDICES: [usize; POKER_HAND_SIZE] = [0, 1, 2, 3, 4];
+pub const NUM_HAND_TYPES: usize = 11;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd)]
 pub enum PokerHand {
@@ -41,10 +42,10 @@ pub fn identify_hand(cards: &mut [CardId]) -> PokerHand {
         return PokerHand::Nothing;
     }
 
-    let mut frequencies = [2,3,4,5,6,7,8,9,10,11,12,13,14].map(|v| (v, 0));
+    let mut frequencies = CARD_VALUES.map(|v| (v, 0));
 
     for card in cards.iter() {
-        frequencies[(card.value.value() - 2) as usize].1 += 1;
+        frequencies[(card.value.value() - MIN_CARD_VALUE) as usize].1 += 1;
     }
 
     frequencies.sort_by_key(|(_c, k)| -k);

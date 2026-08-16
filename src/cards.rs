@@ -1,5 +1,11 @@
 use rand::seq::SliceRandom;
 
+pub const NUM_SUITS: usize = 4;
+pub const CARDS_PER_SUIT: usize = 13;
+pub const CARD_VALUES: [u8; CARDS_PER_SUIT] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+pub const MIN_CARD_VALUE: u8 = CARD_VALUES[0];
+pub const FULL_PACK_SIZE: usize = NUM_SUITS * CARDS_PER_SUIT;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SuitColour {
     Red,
@@ -42,8 +48,8 @@ impl Suit {
 pub struct Value(u8);
 
 impl Value {
-    fn all() -> impl Iterator<Item=Value> {
-        (2..=14).map(|i| Value(i))
+    fn all() -> [Value; CARDS_PER_SUIT] {
+        CARD_VALUES.map(|i| Value(i))
     }
 
     pub fn of_number(number: u8) -> Self {
