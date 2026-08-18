@@ -1,17 +1,22 @@
 use bevy::color::Color;
 use bevy::ecs::{
+    component::Component,
     entity::Entity,
     hierarchy::ChildOf,
     query::Changed,
     system::{Commands, Query, Res},
 };
+use bevy::prelude::{Single, With};
 use bevy::text::{FontSize, Justify, TextColor, TextFont, TextLayout};
 use bevy::ui::{widget::Text, BackgroundColor, BorderColor, Node, PositionType, Val};
 use bevy::utils::default;
 
 use crate::cards::SuitColour;
-use crate::game::{Clue, ClueGuessState, ClueLocation, Tile};
+use crate::game::{Clue, ClueGuessState, ClueLocation, GameSeed, Tile};
 use crate::LayoutData;
+
+#[derive(Component)]
+pub struct GameSeedLabel;
 
 pub fn render_tiles(
     data: Res<LayoutData>,
@@ -134,3 +139,22 @@ pub fn render_clues(
     }
 }
 
+pub fn render_game_seed(
+    data: Res<LayoutData>,
+    game_seed: Res<GameSeed>,
+    node_id: Single<Entity, With<GameSeedLabel>>,
+    mut commands: Commands,
+) {
+    commands.entity(*node_id).despawn_children();
+
+    let text = format!("Seed:\n{}", *game_seed);
+    let text_colour = Color::srgb(0.8, 0.8, 0.8);
+
+    commands.spawn((
+        Text::new(text),
+        TextColor(text_colour),
+        TextFont::from(data.font.clone()).with_font_size(FontSize::Px(24.0)),
+        // TextLayout::justify(Justify::Center),
+        ChildOf(*node_id),
+    ));
+}

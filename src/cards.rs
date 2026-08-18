@@ -1,3 +1,4 @@
+use rand::Rng;
 use rand::seq::SliceRandom;
 
 pub const NUM_SUITS: usize = 4;
@@ -94,6 +95,7 @@ impl CardId {
     }
 }
 
+#[derive(Debug)]
 pub struct Stack {
     cards: Vec<CardId>,
 }
@@ -109,8 +111,8 @@ impl Stack {
         Stack { cards }
     }
 
-    pub fn shuffle(&mut self) {
-        self.cards.shuffle(&mut rand::rng());
+    pub fn shuffle(&mut self, rng: &mut impl Rng) {
+        self.cards.shuffle(rng);
     }
 
     pub fn pop(&mut self) -> Option<CardId> {

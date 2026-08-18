@@ -1,15 +1,17 @@
 use std::collections::HashMap;
-
+use std::fmt::{Display, Formatter};
 use bevy::asset::Handle;
 use bevy::ecs::{
     component::Component,
     entity::Entity,
     message::Message,
     resource::Resource,
-    system::{Commands, In, Query, Res},
+    system::{Commands, In, Query, Res, ResMut},
 };
 use bevy::log::info;
 use bevy::text::Font;
+use bevy::utils::default;
+use rand::{Rng, RngExt, SeedableRng};
 use rand::seq::SliceRandom;
 
 use crate::cards::{CardId, Suit, Value, FULL_PACK_SIZE};
@@ -23,9 +25,30 @@ pub const PLANE_INDICES: [usize; NUM_PLANES] = [0, 1];
 pub const NUM_SPARES: usize = FULL_PACK_SIZE - CLUES_PER_DIRECTION * CLUES_PER_DIRECTION * NUM_PLANES;
 pub const SPARE_INDICES: [usize; NUM_SPARES] = [0, 1];
 
+#[derive(Clone, Copy, Debug, Resource)]
+pub struct GameSeed(u16);
+
+impl GameSeed {
+    pub fn rng(&self) -> impl Rng {
+        rand::rngs::Xoshiro128PlusPlus::seed_from_u64(self.0 as u64)
+    }
+}
+
+impl Default for GameSeed {
+    fn default() -> Self {
+        Self(rand::rng().random())
+    }
+}
+
+impl Display for GameSeed {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:04X}", self.0)
+    }
+}
+
 #[derive(Debug, Message)]
 pub enum GameMessage {
-    Restart,
+    Redeal,
     Quit,
     SelectTile,
     GuessSuit(Suit),
@@ -138,16 +161,18 @@ impl Default for LayoutData {
     }
 }
 
-pub fn restart_game(
+pub fn redeal_game(
     data: Res<LayoutData>,
+    mut seed: ResMut<GameSeed>,
     mut commands: Commands,
 ) {
-    info!("Restarting game");
+    *seed = default();
+    info!("Dealing game with seed {:?}", seed);
 
-    let dealt = deal_game();
+    let dealt = deal_game(*seed);
 
     let mut missings = CLUE_INDICES;
-    missings.shuffle(&mut rand::rng());
+    missings.shuffle(&mut seed.rng());
 
     for i in CLUE_INDICES {
         for j in CLUE_INDICES {

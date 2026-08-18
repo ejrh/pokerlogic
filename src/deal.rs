@@ -3,7 +3,7 @@ use std::mem::MaybeUninit;
 use bevy::log::warn;
 
 use crate::cards::{CardId, Stack};
-use crate::game::{ClueLocation, CLUES_PER_DIRECTION, CLUE_INDICES, NUM_PLANES, NUM_SPARES, PLANE_INDICES, SPARE_INDICES};
+use crate::game::{ClueLocation, GameSeed, CLUES_PER_DIRECTION, CLUE_INDICES, NUM_PLANES, NUM_SPARES, PLANE_INDICES, SPARE_INDICES};
 use crate::poker::{identify_hand, PokerHand, NUM_HAND_TYPES};
 
 pub struct DealtGame {
@@ -15,15 +15,15 @@ pub struct DealtGame {
     pub bottom_hands: [PokerHand; CLUES_PER_DIRECTION],
 }
 
-pub fn deal_game() -> DealtGame {
+pub fn deal_game(seed: GameSeed) -> DealtGame {
+    let mut rng = seed.rng();
     let mut board = [[[MaybeUninit::uninit(); NUM_PLANES]; CLUES_PER_DIRECTION]; CLUES_PER_DIRECTION];
 
     let mut retries = 0;
 
     loop {
         let mut pack = Stack::full_pack();
-        pack.shuffle();
-
+        pack.shuffle(&mut rng);
         for i in CLUE_INDICES {
             for j in CLUE_INDICES {
                 for k in PLANE_INDICES {
