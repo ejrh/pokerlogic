@@ -342,8 +342,6 @@ fn on_click(
     let Ok(tile) = tiles.get(click.entity)
     else { return; };
 
-    println!("Clicked tile");
-
     selection.position = Some(tile.position);
 
     commands.write_message(GameMessage::SelectTile);
