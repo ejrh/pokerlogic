@@ -30,6 +30,7 @@ mod fireworks;
 mod game;
 mod poker;
 mod render;
+mod deal;
 
 fn main() {
     let mut app = App::new();
