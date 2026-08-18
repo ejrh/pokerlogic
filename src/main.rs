@@ -1,4 +1,4 @@
-use bevy::app::{App, AppExit, Startup, Update};
+use bevy::app::{App, AppExit, PluginGroup, Startup, Update};
 use bevy::asset::AssetServer;
 use bevy::camera::visibility::RenderLayers;
 use bevy::camera::{Camera, Camera2d, ClearColorConfig};
@@ -11,7 +11,7 @@ use bevy::text::{FontSize, TextColor, TextFont};
 use bevy::ui::{percent, widget::Text, AlignContent, AlignItems, AlignSelf, BackgroundColor, BorderRadius, Display, FlexDirection, FocusPolicy, GridPlacement, GridTrack, IsDefaultUiCamera, JustifyContent, JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, UiRect, Val};
 use bevy::utils::default;
 use bevy::DefaultPlugins;
-use bevy::window::WindowResized;
+use bevy::window::{Window, WindowPlugin, WindowResized};
 
 use crate::cards::{Suit, Value};
 use crate::fireworks::{animate_fireworks, expire_fireworks, launch_fireworks};
@@ -28,7 +28,13 @@ mod deal;
 fn main() {
     let mut app = App::new();
 
-    app.add_plugins(DefaultPlugins);
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            fit_canvas_to_parent: true,
+            ..default()
+        }),
+        ..default()
+    }));
 
     app.add_message::<GameMessage>();
     app.init_resource::<GameSeed>();
