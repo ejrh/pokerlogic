@@ -23,6 +23,7 @@ jobs:
         run: |
           rustup target add wasm32-unknown-unknown || true
           cargo install wasm-bindgen-cli || true
+          cargo install wasm-opt || true
 
       - name: Set version extra
         if: github.ref == 'refs/heads/wip'
@@ -41,6 +42,11 @@ jobs:
           wasm-bindgen --out-name pokerlogic \
           --out-dir wasm/target \
           --target web target/wasm32-unknown-unknown/release/pokerlogic.wasm
+
+      - name: Optimise
+        run: |
+          wasm-opt -Oz --output wasm/target/pokerlogic_bg.wasm.optimized wasm/target/pokerlogic_bg.wasm
+          mv wasm/target/pokerlogic_bg.wasm.optimized wasm/target/pokerlogic_bg.wasm
 
       - name: Copy additional files
         run: |
