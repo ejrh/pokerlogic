@@ -239,12 +239,16 @@ pub fn check_guesses(
         let mut cards = get_cards_for_clue(&data, tiles.as_readonly(), clue.location);
         let guessed_hand = identify_hand(&mut cards);
 
-        clue.state = if cards.len() < POKER_HAND_SIZE {
+        let state = if cards.len() < POKER_HAND_SIZE {
             ClueGuessState::Incomplete
         } else if guessed_hand == clue.poker_hand {
             ClueGuessState::Correct
         } else {
             ClueGuessState::Wrong
+        };
+
+        if clue.state != state {
+            clue.state = state;
         }
     }
 
