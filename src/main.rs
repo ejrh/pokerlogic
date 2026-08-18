@@ -3,7 +3,7 @@ use bevy::asset::AssetServer;
 use bevy::camera::visibility::RenderLayers;
 use bevy::camera::{Camera, Camera2d, ClearColorConfig};
 use bevy::color::Color;
-use bevy::ecs::{bundle::Bundle, hierarchy::ChildOf, message::MessageReader, observer::On, query::Changed, schedule::{common_conditions::{any_match_filter, on_message, resource_changed}, IntoScheduleConfigs}, system::{Commands, Query, Res, ResMut}};
+use bevy::ecs::{bundle::Bundle, hierarchy::ChildOf, message::MessageReader, observer::On, query::Changed, schedule::{common_conditions::{any_match_filter, on_message, resource_changed}, IntoScheduleConfigs, SystemCondition}, system::{Commands, Query, Res, ResMut}};
 use bevy::input::{keyboard::KeyCode, ButtonInput};
 use bevy::log::info;
 use bevy::picking::events::{Click, Pointer};
@@ -42,7 +42,7 @@ fn main() {
     app.add_systems(Update, render_game_seed.run_if(resource_changed::<GameSeed>).after(handle_game_messages));
     app.add_systems(Update, adjust_scaling.run_if(on_message::<WindowResized>));
     app.add_systems(Update, check_guesses.run_if(any_match_filter::<Changed<Tile>>));
-    app.add_systems(Update, check_for_victory.run_if(any_match_filter::<Changed<Clue>>));
+    app.add_systems(Update, check_for_victory.run_if(any_match_filter::<Changed<Clue>>.or_else(any_match_filter::<Changed<Tile>>)));
     app.add_systems(Update, (animate_fireworks, expire_fireworks).chain());
     app.add_observer(on_click);
 
