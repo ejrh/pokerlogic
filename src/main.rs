@@ -3,7 +3,7 @@ use bevy::asset::AssetServer;
 use bevy::camera::visibility::RenderLayers;
 use bevy::camera::{Camera, Camera2d, ClearColorConfig};
 use bevy::color::Color;
-use bevy::ecs::{bundle::Bundle, hierarchy::ChildOf, message::MessageReader, observer::On, query::Changed, schedule::{common_conditions::{any_match_filter, on_message}, IntoScheduleConfigs}, system::{Commands, Query, Res, ResMut}};
+use bevy::ecs::{bundle::Bundle, hierarchy::ChildOf, message::MessageReader, observer::On, query::Changed, schedule::{common_conditions::{any_match_filter, on_message, resource_changed}, IntoScheduleConfigs}, system::{Commands, Query, Res, ResMut}};
 use bevy::input::{keyboard::KeyCode, ButtonInput};
 use bevy::log::info;
 use bevy::picking::events::{Click, Pointer};
@@ -11,12 +11,12 @@ use bevy::text::{FontSize, TextColor, TextFont};
 use bevy::ui::{percent, widget::Text, AlignContent, AlignItems, AlignSelf, BackgroundColor, BorderRadius, Display, FlexDirection, FocusPolicy, GridPlacement, GridTrack, IsDefaultUiCamera, JustifyContent, JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, UiRect, Val};
 use bevy::utils::default;
 use bevy::DefaultPlugins;
-use bevy::prelude::resource_changed;
+use bevy::window::WindowResized;
 
 use crate::cards::{Suit, Value};
 use crate::fireworks::{animate_fireworks, expire_fireworks, launch_fireworks};
 use crate::game::{check_for_victory, check_guesses, clear_guesses, guess_suit, guess_value, redeal_game, select_tile, solve_all, Clue, GameMessage, GameSeed, LayoutData, Selection, Tile, CLUE_INDICES};
-use crate::render::{render_clues, render_game_seed, render_tiles, GameSeedLabel};
+use crate::render::{adjust_scaling, render_clues, render_game_seed, render_tiles, GameSeedLabel};
 
 mod cards;
 mod fireworks;
@@ -40,6 +40,7 @@ fn main() {
     app.add_systems(Update, handle_game_messages.run_if(on_message::<GameMessage>));
     app.add_systems(Update, (render_tiles, render_clues).after(handle_game_messages));
     app.add_systems(Update, render_game_seed.run_if(resource_changed::<GameSeed>).after(handle_game_messages));
+    app.add_systems(Update, adjust_scaling.run_if(on_message::<WindowResized>));
     app.add_systems(Update, check_guesses.run_if(any_match_filter::<Changed<Tile>>));
     app.add_systems(Update, check_for_victory.run_if(any_match_filter::<Changed<Clue>>));
     app.add_systems(Update, (animate_fireworks, expire_fireworks).chain());

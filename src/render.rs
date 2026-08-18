@@ -3,13 +3,15 @@ use bevy::ecs::{
     component::Component,
     entity::Entity,
     hierarchy::ChildOf,
-    query::Changed,
-    system::{Commands, Query, Res},
+    query::{Changed, With},
+    system::{Commands, Query, Res, ResMut, Single},
 };
-use bevy::prelude::{Single, With};
+use bevy::log::info;
+use bevy::math::Vec2;
 use bevy::text::{FontSize, Justify, TextColor, TextFont, TextLayout};
-use bevy::ui::{widget::Text, BackgroundColor, BorderColor, Node, PositionType, Val};
+use bevy::ui::{widget::Text, BackgroundColor, BorderColor, Node, PositionType, UiScale, Val};
 use bevy::utils::default;
+use bevy::window::Window;
 
 use crate::cards::SuitColour;
 use crate::game::{Clue, ClueGuessState, ClueLocation, GameSeed, Tile};
@@ -157,4 +159,17 @@ pub fn render_game_seed(
         // TextLayout::justify(Justify::Center),
         ChildOf(*node_id),
     ));
+}
+
+const MIN_WINDOW_SIZE: Vec2 = Vec2::new(1280.0, 720.0);
+
+pub fn adjust_scaling(
+    window: Single<&Window>,
+    mut ui_scale: ResMut<UiScale>,
+) {
+    let window_size = &window.resolution.size();
+    let relative_scale = window_size / MIN_WINDOW_SIZE;
+    let scale = relative_scale.min_element();
+    info!("Window resized to {window_size}; setting UI scale to {scale}");
+    ui_scale.0 = scale;
 }
