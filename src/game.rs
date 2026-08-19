@@ -165,14 +165,17 @@ pub fn redeal_game(
 
     let dealt = deal_game(*seed);
 
-    let mut missings = CLUE_INDICES;
-    missings.shuffle(&mut seed.rng());
+    let mut rng = seed.rng();
+    let mut missings = PLANE_INDICES.map(|i| CLUE_INDICES);
+    for k in PLANE_INDICES {
+        missings[k].shuffle(&mut rng);
+    }
 
     for i in CLUE_INDICES {
         for j in CLUE_INDICES {
             for k in PLANE_INDICES {
                 let card = dealt.board[i][j][k];
-                let known = missings[i] != j;
+                let known = missings[k][i] != j;
                 let new_tile = Tile {
                     position: TilePosition::Board(i, j, k),
                     card,
