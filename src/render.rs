@@ -13,11 +13,10 @@ use bevy::ecs::{
 use bevy::log::info;
 use bevy::math::Vec2;
 use bevy::text::{Font, FontSize, Justify, TextColor, TextFont, TextLayout};
-use bevy::ui::{widget::Text, BackgroundColor, BorderColor, Node, PositionType, UiScale, Val};
-use bevy::utils::default;
+use bevy::ui::{widget::Text, BackgroundColor, BorderColor, UiScale};
 use bevy::window::{Window, WindowResized};
 
-use crate::cards::SuitColour;
+use crate::cards::{Suit, SuitColour};
 use crate::game::{Clue, ClueGuessState, ClueLocation, GameSeed, Tile};
 use crate::{handle_game_messages, LayoutData};
 
@@ -46,6 +45,7 @@ pub struct RenderSystems;
 #[derive(Resource, Default)]
 pub struct Theme {
     pub font: Handle<Font>,
+    pub card_font: Handle<Font>,
     pub symbol_font: Handle<Font>,
 }
 
@@ -57,6 +57,7 @@ fn setup_theme(
     mut theme: ResMut<Theme>,
 ) {
     theme.font = asset_server.load("fonts/FiraMono-Medium.ttf");
+    theme.card_font = asset_server.load("fonts/JqkasWild.ttf");
     theme.symbol_font = asset_server.load("fonts/JetBrainsMono-Medium.ttf");
 }
 
@@ -89,21 +90,32 @@ pub fn render_tiles(
                 BorderColor::all(border_color),
             ));
 
-        let suit_str;
         let value_str;
         let colour;
         if tile.known {
-            suit_str = tile.card.suit.symbol();
             value_str = tile.card.value.symbol();
             colour = match tile.card.suit.colour() {
                 SuitColour::Red => Color::srgb(0.8, 0.1, 0.1),
                 SuitColour::Black => Color::srgb(0.1, 0.1, 0.1),
             };
         } else {
-            suit_str = tile.guessed_suit.map_or("", |s| s.symbol());
             value_str = tile.guessed_value.map_or("", |v| v.symbol());
             colour = Color::srgb(0.3, 0.3, 0.3);
         }
+
+        let shown_suit = if tile.known {
+            Some(tile.card.suit)
+        } else {
+            tile.guessed_suit
+        };
+
+        let suit_str = match shown_suit {
+            Some(Suit::Clubs) => "}",
+            Some(Suit::Diamonds) => "{",
+            Some(Suit::Hearts) => "<",
+            Some(Suit::Spades) => ">",
+            None => "",
+        };
 
         let (mark, mark_colour) = if tile.duplicate {
             (" ✗", Color::srgb(0.8, 0.2, 0.2))
@@ -114,27 +126,17 @@ pub fn render_tiles(
         commands.spawn((
             Text::new(suit_str),
             TextColor(colour),
-            TextFont::from(theme.font.clone()).with_font_size(FontSize::Px(36.0)),
+            TextFont::from(theme.card_font.clone()).with_font_size(FontSize::Px(32.0)),
             ChildOf(tile_id),
         ));
         commands.spawn((
-            Node {
-                position_type: PositionType::Relative,
-                top: Val::Px(2.0),
-                ..default()
-            },
             Text::new(value_str),
             TextColor(colour),
-            TextFont::from(theme.font.clone()).with_font_size(FontSize::Px(28.0)),
+            TextFont::from(theme.card_font.clone()).with_font_size(FontSize::Px(32.0)),
             ChildOf(tile_id),
         ));
 
         commands.spawn((
-            Node {
-                position_type: PositionType::Relative,
-                top: Val::Px(2.0),
-                ..default()
-            },
             Text::new(mark),
             TextColor(mark_colour),
             TextFont::from(theme.symbol_font.clone()).with_font_size(FontSize::Px(28.0)),
