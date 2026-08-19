@@ -1,9 +1,16 @@
 use bevy::app::{App, AppExit, PluginGroup, Startup, Update};
-use bevy::asset::AssetServer;
 use bevy::camera::visibility::RenderLayers;
 use bevy::camera::{Camera, Camera2d, ClearColorConfig};
 use bevy::color::Color;
-use bevy::ecs::{bundle::Bundle, hierarchy::ChildOf, message::MessageReader, observer::On, query::Changed, schedule::{common_conditions::{any_match_filter, on_message, resource_changed}, IntoScheduleConfigs, SystemCondition}, system::{Commands, Query, Res, ResMut}};
+use bevy::ecs::{
+    bundle::Bundle,
+    hierarchy::ChildOf,
+    message::MessageReader,
+    observer::On,
+    query::Changed,
+    schedule::{common_conditions::{any_match_filter, on_message}, IntoScheduleConfigs, SystemCondition},
+    system::{Commands, Query, Res, ResMut}
+};
 use bevy::input::{keyboard::KeyCode, ButtonInput};
 use bevy::log::info;
 use bevy::picking::events::{Click, Pointer};
@@ -11,12 +18,12 @@ use bevy::text::{FontSize, TextColor, TextFont};
 use bevy::ui::{percent, widget::Text, AlignContent, AlignItems, AlignSelf, BackgroundColor, BorderRadius, Display, FlexDirection, FocusPolicy, GridPlacement, GridTrack, IsDefaultUiCamera, JustifyContent, JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, UiRect, Val};
 use bevy::utils::default;
 use bevy::DefaultPlugins;
-use bevy::window::{Window, WindowPlugin, WindowResized};
+use bevy::window::{Window, WindowPlugin};
 
 use crate::cards::{Suit, Value};
 use crate::fireworks::{animate_fireworks, expire_fireworks, launch_fireworks};
 use crate::game::{check_for_victory, check_guesses, clear_guesses, guess_suit, guess_value, redeal_game, select_tile, solve_all, Clue, GameMessage, GameSeed, LayoutData, Selection, Tile, CLUE_INDICES};
-use crate::render::{adjust_scaling, render_clues, render_game_seed, render_tiles, GameSeedLabel};
+use crate::render::{GameSeedLabel, RenderPlugin, Theme};
 
 mod cards;
 mod fireworks;
@@ -44,25 +51,21 @@ fn main() {
     app.add_systems(Startup, redeal_game.after(setup_layout));
     app.add_systems(Update, handle_input);
     app.add_systems(Update, handle_game_messages.run_if(on_message::<GameMessage>));
-    app.add_systems(Update, (render_tiles, render_clues).after(handle_game_messages));
-    app.add_systems(Update, render_game_seed.run_if(resource_changed::<GameSeed>).after(handle_game_messages));
-    app.add_systems(Update, adjust_scaling.run_if(on_message::<WindowResized>));
     app.add_systems(Update, check_guesses.run_if(any_match_filter::<Changed<Tile>>));
     app.add_systems(Update, check_for_victory.run_if(any_match_filter::<Changed<Clue>>.or_else(any_match_filter::<Changed<Tile>>)));
     app.add_systems(Update, (animate_fireworks, expire_fireworks).chain());
     app.add_observer(on_click);
+
+    app.add_plugins(RenderPlugin);
 
     app.run();
 }
 
 fn setup_layout(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
+    theme: Res<Theme>,
     mut data: ResMut<LayoutData>,
 ) {
-    data.font = asset_server.load("fonts/FiraMono-Medium.ttf");
-    data.symbol_font = asset_server.load("fonts/JetBrainsMono-Medium.ttf");
-
     commands.spawn((
         Camera2d,
         Camera {
@@ -270,7 +273,7 @@ fn setup_layout(
         ChildOf(parent_id),
         Text::new("R - redeal; Click to guess specific card"),
         TextColor(Color::srgb(0.8, 0.6, 0.6)),
-        TextFont::from(data.font.clone()).with_font_size(FontSize::Px(24.0)),
+        TextFont::from(theme.font.clone()).with_font_size(FontSize::Px(24.0)),
     ));
     commands.spawn((
         Node {
@@ -279,7 +282,7 @@ fn setup_layout(
         ChildOf(parent_id),
         Text::new("(C,D,H,S) - guess suit; (2-10,J,Q,K,A) - guess value; Space - clear guess"),
         TextColor(Color::srgb(0.8, 0.6, 0.6)),
-        TextFont::from(data.font.clone()).with_font_size(FontSize::Px(24.0)),
+        TextFont::from(theme.font.clone()).with_font_size(FontSize::Px(24.0)),
     ));
 }
 

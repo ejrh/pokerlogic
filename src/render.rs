@@ -1,31 +1,72 @@
+use bevy::app::{App, Plugin, PostUpdate, Startup};
+use bevy::asset::{AssetServer, Handle};
 use bevy::color::Color;
 use bevy::ecs::{
     component::Component,
     entity::Entity,
     hierarchy::ChildOf,
     query::{Changed, With},
+    resource::Resource,
+    schedule::{common_conditions::{on_message, resource_changed}, IntoScheduleConfigs, SystemSet},
     system::{Commands, Query, Res, ResMut, Single},
 };
 use bevy::log::info;
 use bevy::math::Vec2;
-use bevy::text::{FontSize, Justify, TextColor, TextFont, TextLayout};
+use bevy::text::{Font, FontSize, Justify, TextColor, TextFont, TextLayout};
 use bevy::ui::{widget::Text, BackgroundColor, BorderColor, Node, PositionType, UiScale, Val};
 use bevy::utils::default;
-use bevy::window::Window;
+use bevy::window::{Window, WindowResized};
 
 use crate::cards::SuitColour;
 use crate::game::{Clue, ClueGuessState, ClueLocation, GameSeed, Tile};
-use crate::LayoutData;
+use crate::{handle_game_messages, LayoutData};
+
+pub struct RenderPlugin;
+
+impl Plugin for RenderPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<Theme>();
+
+        app.add_systems(Startup, setup_theme.in_set(RenderSystems));
+
+        app.add_systems(PostUpdate, (
+                render_tiles,
+                render_clues,
+                render_game_seed.run_if(resource_changed::<GameSeed>),
+                adjust_scaling.run_if(on_message::<WindowResized>),
+            ).in_set(RenderSystems)
+            .after(handle_game_messages)
+        );
+    }
+}
+
+#[derive(SystemSet, Clone, Debug, Eq, Hash, PartialEq)]
+pub struct RenderSystems;
+
+#[derive(Resource, Default)]
+pub struct Theme {
+    pub font: Handle<Font>,
+    pub symbol_font: Handle<Font>,
+}
 
 #[derive(Component)]
 pub struct GameSeedLabel;
 
+fn setup_theme(
+    asset_server: Res<AssetServer>,
+    mut theme: ResMut<Theme>,
+) {
+    theme.font = asset_server.load("fonts/FiraMono-Medium.ttf");
+    theme.symbol_font = asset_server.load("fonts/JetBrainsMono-Medium.ttf");
+}
+
 pub fn render_tiles(
-    data: Res<LayoutData>,
+    theme: Res<Theme>,
+    layout_data: Res<LayoutData>,
     tiles: Query<&Tile, Changed<Tile>>,
     mut commands: Commands
 ) {
-    fn render_tile(data: &LayoutData, commands: &mut Commands, tile_id: Entity, tile: &Tile) {
+    fn render_tile(theme: &Theme, commands: &mut Commands, tile_id: Entity, tile: &Tile) {
         commands.entity(tile_id).despawn_children();
 
         let bg = if tile.known {
@@ -73,7 +114,7 @@ pub fn render_tiles(
         commands.spawn((
             Text::new(suit_str),
             TextColor(colour),
-            TextFont::from(data.font.clone()).with_font_size(FontSize::Px(36.0)),
+            TextFont::from(theme.font.clone()).with_font_size(FontSize::Px(36.0)),
             ChildOf(tile_id),
         ));
         commands.spawn((
@@ -84,7 +125,7 @@ pub fn render_tiles(
             },
             Text::new(value_str),
             TextColor(colour),
-            TextFont::from(data.font.clone()).with_font_size(FontSize::Px(28.0)),
+            TextFont::from(theme.font.clone()).with_font_size(FontSize::Px(28.0)),
             ChildOf(tile_id),
         ));
 
@@ -96,29 +137,30 @@ pub fn render_tiles(
             },
             Text::new(mark),
             TextColor(mark_colour),
-            TextFont::from(data.symbol_font.clone()).with_font_size(FontSize::Px(28.0)),
+            TextFont::from(theme.symbol_font.clone()).with_font_size(FontSize::Px(28.0)),
             ChildOf(tile_id),
         ));
     }
 
     for tile in tiles {
-        let tile_id = data.get_tile_id(tile.position);
+        let tile_id = layout_data.get_tile_id(tile.position);
 
-        render_tile(&data, &mut commands, tile_id, tile);
+        render_tile(&theme, &mut commands, tile_id, tile);
     }
 }
 
 pub fn render_clues(
-    data: Res<LayoutData>,
+    theme: Res<Theme>,
+    layout_data: Res<LayoutData>,
     clues: Query<&Clue, Changed<Clue>>,
     mut commands: Commands
 ) {
     for clue in clues {
         let header_id = match clue.location {
-            ClueLocation::Top(column) => data.top_ids[column],
-            ClueLocation::Left(row) => data.left_ids[row],
-            ClueLocation::Right(row) => data.right_ids[row],
-            ClueLocation::Bottom(column) => data.bottom_ids[column],
+            ClueLocation::Top(column) => layout_data.top_ids[column],
+            ClueLocation::Left(row) => layout_data.left_ids[row],
+            ClueLocation::Right(row) => layout_data.right_ids[row],
+            ClueLocation::Bottom(column) => layout_data.bottom_ids[column],
         };
 
         commands.entity(header_id).despawn_children();
@@ -134,7 +176,7 @@ pub fn render_clues(
         commands.spawn((
             Text::new(text),
             TextColor(text_colour),
-            TextFont::from(data.symbol_font.clone()).with_font_size(FontSize::Px(24.0)),
+            TextFont::from(theme.symbol_font.clone()).with_font_size(FontSize::Px(24.0)),
             TextLayout::justify(Justify::Center),
             ChildOf(header_id),
         ));
@@ -142,7 +184,7 @@ pub fn render_clues(
 }
 
 pub fn render_game_seed(
-    data: Res<LayoutData>,
+    theme: Res<Theme>,
     game_seed: Res<GameSeed>,
     node_id: Single<Entity, With<GameSeedLabel>>,
     mut commands: Commands,
@@ -155,7 +197,7 @@ pub fn render_game_seed(
     commands.spawn((
         Text::new(text),
         TextColor(text_colour),
-        TextFont::from(data.font.clone()).with_font_size(FontSize::Px(24.0)),
+        TextFont::from(theme.font.clone()).with_font_size(FontSize::Px(24.0)),
         // TextLayout::justify(Justify::Center),
         ChildOf(*node_id),
     ));

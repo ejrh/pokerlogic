@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use bevy::asset::Handle;
 use bevy::ecs::{
     component::Component,
     entity::Entity,
@@ -9,7 +8,6 @@ use bevy::ecs::{
     system::{Commands, In, Query, Res, ResMut},
 };
 use bevy::log::info;
-use bevy::text::Font;
 use bevy::utils::default;
 use rand::{Rng, RngExt, SeedableRng};
 use rand::seq::SliceRandom;
@@ -127,8 +125,6 @@ pub struct Clue {
 
 #[derive(Resource)]
 pub struct LayoutData {
-    pub font: Handle<Font>,
-    pub symbol_font: Handle<Font>,
     pub top_ids: Vec<Entity>,
     pub left_ids: Vec<Entity>,
     pub right_ids: Vec<Entity>,
@@ -149,8 +145,6 @@ impl LayoutData {
 impl Default for LayoutData {
     fn default() -> Self {
         LayoutData {
-            font: Handle::default(),
-            symbol_font: Handle::default(),
             top_ids: vec![Entity::PLACEHOLDER; CLUES_PER_DIRECTION],
             left_ids: vec![Entity::PLACEHOLDER; CLUES_PER_DIRECTION],
             right_ids: vec![Entity::PLACEHOLDER; CLUES_PER_DIRECTION],
