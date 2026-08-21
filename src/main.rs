@@ -22,7 +22,7 @@ use bevy::window::{Window, WindowPlugin};
 
 use crate::cards::{Suit, Value};
 use crate::fireworks::{animate_fireworks, expire_fireworks, launch_fireworks};
-use crate::game::{check_for_victory, check_guesses, clear_guesses, guess_suit, guess_value, redeal_game, select_tile, solve_all, Clue, GameMessage, GameSeed, LayoutData, Selection, Tile, CLUE_INDICES};
+use crate::game::{check_for_victory, check_guesses, clear_guesses, guess_suit, guess_value, redeal_game, select_tile, solve_all, Clue, GameMessage, GameSeed, LayoutData, Selection, Tile, CLUE_INDICES, SPARE_INDICES};
 use crate::render::{GameSeedLabel, RenderPlugin, Theme};
 
 mod cards;
@@ -92,12 +92,12 @@ fn setup_layout(
         GridTrack::fr(1.0),
         GridTrack::fr(1.0),
         GridTrack::fr(1.0),
-        GridTrack::fr(1.0),
-        GridTrack::fr(1.0),
-        GridTrack::fr(1.0),
-        GridTrack::fr(1.0),
-        GridTrack::fr(1.0),
         GridTrack::fr(1.2),
+        GridTrack::fr(1.0),
+        GridTrack::fr(1.0),
+        GridTrack::fr(1.0),
+        GridTrack::fr(1.0),
+        GridTrack::fr(1.0),
     ];
 
     let grid_template_rows = vec![
@@ -107,7 +107,6 @@ fn setup_layout(
         GridTrack::fr(1.0),
         GridTrack::fr(1.0),
         GridTrack::fr(1.0),
-        GridTrack::minmax(MinTrackSizingFunction::Px(80.0), MaxTrackSizingFunction::Auto),
     ];
 
     let parent_id = commands.spawn((
@@ -184,6 +183,7 @@ fn setup_layout(
                 display: Display::Flex,
                 align_items,
                 justify_content,
+                width: Val::Px(80.0),
                 border,
                 margin,
                 padding,
@@ -200,6 +200,7 @@ fn setup_layout(
                 display: Display::Flex,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
+                width: Val::Px(80.0),
                 border: UiRect::all(Val::Px(2.0)).with_bottom(Val::Px(0.0)),
                 padding: UiRect::all(Val::Px(8.0)),
                 margin: UiRect::all(Val::Px(4.0)),
@@ -211,21 +212,28 @@ fn setup_layout(
     }
 
     commands.spawn((
-        Node::default(), ChildOf(board_id),
+        Node::default(),
+        ChildOf(board_id),
+        GameSeedLabel,
     ));
 
     for i in CLUE_INDICES {
         data.top_ids[i] = commands.spawn((
-            make_heading(2, true),
+            make_heading(1, true),
             ChildOf(board_id),
         )).id();
     }
 
     commands.spawn((
-        Node::default(),
-        ChildOf(board_id),
-        GameSeedLabel,
+        Node::default(), ChildOf(board_id),
     ));
+
+    for i in CLUE_INDICES {
+        data.bottom_ids[i] = commands.spawn((
+            make_heading(1, true),
+            ChildOf(board_id),
+        )).id();
+    }
 
     for i in CLUE_INDICES {
         data.left_ids[i] = commands.spawn((
@@ -237,40 +245,41 @@ fn setup_layout(
                 make_card(true),
                 ChildOf(board_id),
             )).id();
+        }
+        data.right_ids[i] = commands.spawn((
+            make_heading(1, true),
+            ChildOf(board_id),
+        )).id();
+        for j in CLUE_INDICES {
             data.tile_ids[i][j][1] = commands.spawn((
-                make_card(false),
+                make_card(true),
                 ChildOf(board_id),
             )).id();
         }
-        data.right_ids[i] = commands.spawn((
-            make_heading(1, false),
-            ChildOf(board_id),
-        )).id();
     }
 
-    data.spare_ids[0] =commands.spawn((
-        make_spare(),
-        ChildOf(board_id),
-    )).id();
-
-    for i in CLUE_INDICES {
-        data.bottom_ids[i] = commands.spawn((
-            make_heading(2, false),
-            ChildOf(board_id),
-        )).id();
-    }
-
-    data.spare_ids[1] =commands.spawn((
-        make_spare(),
-        ChildOf(board_id),
+    let footer_id = commands.spawn((
+        Node {
+            flex_direction: FlexDirection::Row,
+            ..default()
+        },
+        ChildOf(parent_id),
     )).id();
 
     // Instructions at bottom
+    let instructions_id = commands.spawn((
+        Node {
+            flex_direction: FlexDirection::Column,
+            ..default()
+        },
+        ChildOf(footer_id),
+    )).id();
+
     commands.spawn((
         Node {
             ..default()
         },
-        ChildOf(parent_id),
+        ChildOf(instructions_id),
         Text::new("R - redeal; Click to guess specific card"),
         TextColor(Color::srgb(0.8, 0.6, 0.6)),
         TextFont::from(theme.font.clone()).with_font_size(FontSize::Px(24.0)),
@@ -279,11 +288,30 @@ fn setup_layout(
         Node {
             ..default()
         },
-        ChildOf(parent_id),
+        ChildOf(instructions_id),
         Text::new("(C,D,H,S) - guess suit; (2-10,J,Q,K,A) - guess value; Space - clear guess"),
         TextColor(Color::srgb(0.8, 0.6, 0.6)),
         TextFont::from(theme.font.clone()).with_font_size(FontSize::Px(24.0)),
     ));
+
+    // Spares in the bottom-right corner
+    commands.spawn((
+        Node {
+            ..default()
+        },
+        Text::new("Spares:"),
+        TextColor(Color::srgb(0.8, 0.8, 0.8)),
+        TextFont::from(theme.font.clone()).with_font_size(FontSize::Px(24.0)),
+        // TextLayout::justify(Justify::Center),
+        ChildOf(footer_id),
+    ));
+
+    for i in SPARE_INDICES {
+        data.spare_ids[i] = commands.spawn((
+            make_spare(),
+            ChildOf(footer_id),
+        )).id();
+    }
 }
 
 fn handle_input(
