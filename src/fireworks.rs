@@ -1,3 +1,4 @@
+use rand::prelude::IndexedRandom;
 use std::ops::Range;
 
 use bevy::asset::Assets;
@@ -9,12 +10,18 @@ use bevy::ecs::{
     query::With,
     system::{Commands, In, Query, Res, ResMut, SystemInput},
 };
-use bevy::math::{primitives::Circle, Vec3};
+use bevy::math::{primitives::Circle, Vec3, Vec3Swizzles};
 use bevy::mesh::{Mesh, Mesh2d};
+use bevy::prelude::Text;
 use bevy::sprite_render::{ColorMaterial, MeshMaterial2d};
+use bevy::text::{TextColor, TextFont};
 use bevy::time::Time;
 use bevy::transform::components::Transform;
+use bevy::ui::{UiTransform, Val, Val2};
 use rand::RngExt;
+use rand::seq::IteratorRandom;
+use crate::cards::{Suit, SuitColour};
+use crate::render::Theme;
 
 #[derive(Component)]
 pub struct Firework {
@@ -37,11 +44,12 @@ pub fn launch_fireworks(
     commands: Commands,
     meshes: ResMut<Assets<Mesh>>,
     materials: ResMut<Assets<ColorMaterial>>,
+    theme: Res<Theme>,
 ) {
     let initial_position = Vec3::new(0.0, 0.0, 0.0);
     let initial_velocity = Vec3::new(0.0, 500.0, 0.0);
     let input = In::wrap((2, initial_position, initial_velocity));
-    spawn_fireworks(input, commands, meshes, materials);
+    spawn_fireworks(input, commands, meshes, materials, theme);
 }
 
 pub fn spawn_fireworks(
@@ -49,6 +57,7 @@ pub fn spawn_fireworks(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    theme: Res<Theme>,
 ) {
     let (level, initial_position, initial_velocity) = *params;
 
@@ -71,33 +80,58 @@ pub fn spawn_fireworks(
         let position = initial_position + position;
         let velocity = initial_velocity + velocity;
 
+        let suit = *Suit::all().choose(&mut rand::rng()).unwrap();
+        let symbol = match suit {
+            Suit::Clubs => "}",
+            Suit::Diamonds => "{",
+            Suit::Hearts => "<",
+            Suit::Spades => ">",
+        };
+
+        let colour = match suit.colour() {
+            SuitColour::Red => Color::srgb(1.0, 0.2, 0.2),
+            SuitColour::Black => Color::srgb(0.0, 0.0, 0.0),
+        };
+
         commands.spawn((
             Firework { fuse, level },
-            Mesh2d(fireworks_mesh.clone()),
-            MeshMaterial2d(material.clone()),
+            Text(symbol.to_owned()),
+            TextColor(colour),
+            TextFont::from(theme.card_font.clone()),
+            // Mesh2d(fireworks_mesh.clone()),
+            // MeshMaterial2d(material.clone()),
             Transform::from_translation(position).with_scale(scale),
             Velocity(velocity),
-            RenderLayers::layer(1),
         ));
+
+        // commands.spawn((
+        //     Firework { fuse, level },
+        //     Mesh2d(fireworks_mesh.clone()),
+        //     MeshMaterial2d(material.clone()),
+        //     Transform::from_translation(position).with_scale(scale),
+        //     Velocity(velocity),
+        //     RenderLayers::layer(1),
+        // ));
     }
 }
 
 pub fn animate_fireworks(
-    mut fireworks: Query<(&mut Velocity, &mut Transform), With<Firework>>,
+    mut fireworks: Query<(&mut Velocity, &mut Transform, &mut UiTransform), With<Firework>>,
     time: Res<Time>,
 ) {
     let dt = time.delta_secs();
 
-    for (mut v, mut t) in fireworks.iter_mut() {
+    for (mut v, mut t, mut uit) in fireworks.iter_mut() {
         let a = GRAVITY - DRAG * v.0;
         v.0 += a * dt;
 
         t.translation += v.0 * dt;
+        uit.translation = Val2::new(Val::Px(640.0 + t.translation.x), Val::Px(360.0 - t.translation.y));
     }
 }
 
 pub fn expire_fireworks(
-    mut fireworks: Query<(Entity, &mut Firework, &Velocity, &Transform), With<Mesh2d>>,
+    mut fireworks: Query<(Entity, &mut Firework, &Velocity, &Transform)>,
     time: Res<Time>,
     mut commands: Commands,
 ) {

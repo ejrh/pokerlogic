@@ -22,7 +22,7 @@ pub enum Suit {
 }
 
 impl Suit {
-    fn all() -> [Suit; 4] {
+    pub(crate) fn all() -> [Suit; 4] {
         [Suit::Clubs, Suit::Diamonds, Suit::Hearts, Suit::Spades]
     }
 
@@ -127,7 +127,7 @@ impl Stack {
         let card = self.cards[self.size];
         Some(card)
     }
-    
+
     /**
      * Reset the pack to its original size, restoring any popped cards. Note that if any cards
      * have been pushed to the stack in the interim, they will take the place of popped cards!

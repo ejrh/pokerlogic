@@ -116,7 +116,7 @@ pub fn render_tiles(
             Some(Suit::Spades) => ">",
             None => "",
         };
-
+        
         let (mark, mark_colour) = if tile.duplicate {
             (" ✗", Color::srgb(0.8, 0.2, 0.2))
         } else {
