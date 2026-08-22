@@ -163,9 +163,9 @@ pub fn redeal_game(
     *seed = default();
     info!("Dealing game with seed {:?}", seed);
 
-    let dealt = deal_game(*seed);
-
     let mut rng = seed.rng();
+    let dealt = deal_game(&mut rng);
+
     let mut missings = PLANE_INDICES.map(|i| CLUE_INDICES);
     for k in PLANE_INDICES {
         missings[k].shuffle(&mut rng);

@@ -1,9 +1,10 @@
 use std::mem::MaybeUninit;
 
 use bevy::log::warn;
+use rand::Rng;
 
 use crate::cards::{CardId, Stack};
-use crate::game::{ClueLocation, GameSeed, CLUES_PER_DIRECTION, CLUE_INDICES, NUM_PLANES, NUM_SPARES, PLANE_INDICES, SPARE_INDICES};
+use crate::game::{ClueLocation, CLUES_PER_DIRECTION, CLUE_INDICES, NUM_PLANES, NUM_SPARES, PLANE_INDICES, SPARE_INDICES};
 use crate::poker::{identify_hand, PokerHand, NUM_HAND_TYPES};
 
 pub struct DealtGame {
@@ -15,15 +16,16 @@ pub struct DealtGame {
     pub bottom_hands: [PokerHand; CLUES_PER_DIRECTION],
 }
 
-pub fn deal_game(seed: GameSeed) -> DealtGame {
-    let mut rng = seed.rng();
+pub fn deal_game(rng: &mut impl Rng) -> DealtGame {
     let mut board = [[[MaybeUninit::uninit(); NUM_PLANES]; CLUES_PER_DIRECTION]; CLUES_PER_DIRECTION];
 
     let mut retries = 0;
 
+    let mut pack = Stack::full_pack();
+
     loop {
-        let mut pack = Stack::full_pack();
-        pack.shuffle(&mut rng);
+        pack.reset();
+        pack.shuffle(rng);
         for i in CLUE_INDICES {
             for j in CLUE_INDICES {
                 for k in PLANE_INDICES {
@@ -61,9 +63,9 @@ pub fn deal_game(seed: GameSeed) -> DealtGame {
 
         // Check for sufficient interesting hands; redeal if not good enough
         if hand_counts[PokerHand::NoPair as usize] >= 6 || hand_counts[PokerHand::OnePair as usize] >= 12
-            || hand_counts.iter().filter(|k| **k > 0).count() < 4 {
+            || hand_counts.iter().filter(|k| **k > 0).count() < 6 {
             retries += 1;
-            if retries % 1000 == 0 {
+            if retries % 100000 == 0 {
                 warn!("Retrying shuffle {retries} times!")
             }
 
@@ -80,5 +82,20 @@ pub fn deal_game(seed: GameSeed) -> DealtGame {
             right_hands,
             bottom_hands,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    pub fn no_memory_allocations() {
+        let mut rng = rand::rng();
+        let info = allocation_counter::measure(|| {
+            let dealt_game = deal_game(&mut rng);
+            std::hint::black_box(dealt_game);
+        });
+        assert!(info.count_total < 10);
     }
 }

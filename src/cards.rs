@@ -95,8 +95,11 @@ impl CardId {
     }
 }
 
+/** A stack of cards, in a given order. */
 #[derive(Debug)]
 pub struct Stack {
+    size: usize,
+    original_size: usize,
     cards: Vec<CardId>,
 }
 
@@ -108,7 +111,10 @@ impl Stack {
                 cards.push(CardId { suit, value });
             }
         }
-        Stack { cards }
+        Stack {
+            size: cards.len(),
+            original_size: cards.len(),
+            cards, }
     }
 
     pub fn shuffle(&mut self, rng: &mut impl Rng) {
@@ -116,11 +122,17 @@ impl Stack {
     }
 
     pub fn pop(&mut self) -> Option<CardId> {
-        self.cards.pop()
+        if self.size == 0 { return None; }
+        self.size -= 1;
+        let card = self.cards[self.size];
+        Some(card)
     }
-
-    pub fn pop_all(&mut self) -> Vec<CardId> {
-        let cards = std::mem::take(&mut self.cards);
-        cards
+    
+    /**
+     * Reset the pack to its original size, restoring any popped cards. Note that if any cards
+     * have been pushed to the stack in the interim, they will take the place of popped cards!
+     */
+    pub fn reset(&mut self) {
+        self.size = self.original_size;
     }
 }
