@@ -6,7 +6,7 @@ pub const NUM_HAND_TYPES: usize = 11;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd)]
 pub enum PokerHand {
-    Nothing,
+    NoPair,
     OnePair,
     TwoPair,
     ThreeOfAKind,
@@ -22,7 +22,7 @@ pub enum PokerHand {
 impl PokerHand {
     pub fn name(&self) -> &'static str {
         match self {
-            PokerHand::Nothing => "Nothing",
+            PokerHand::NoPair => "No Pair",
             PokerHand::OnePair => "One Pair",
             PokerHand::TwoPair => "Two Pair",
             PokerHand::ThreeOfAKind => "Three Of A Kind",
@@ -39,7 +39,7 @@ impl PokerHand {
 
 pub fn identify_hand(cards: &mut [CardId]) -> PokerHand {
     if cards.is_empty() {
-        return PokerHand::Nothing;
+        return PokerHand::NoPair;
     }
 
     let mut frequencies = CARD_VALUES.map(|v| (v, 0));
@@ -107,7 +107,7 @@ pub fn identify_hand(cards: &mut [CardId]) -> PokerHand {
         return PokerHand::OnePair;
     }
 
-    PokerHand::Nothing
+    PokerHand::NoPair
 }
 
 #[cfg(test)]
