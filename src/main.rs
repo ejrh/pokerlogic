@@ -1,10 +1,5 @@
 use bevy::app::{App, AppExit, PluginGroup, Startup, Update};
-use bevy::camera::visibility::RenderLayers;
-use bevy::camera::{Camera, Camera2d, ClearColorConfig};
-use bevy::color::Color;
 use bevy::ecs::{
-    bundle::Bundle,
-    hierarchy::ChildOf,
     message::MessageReader,
     observer::On,
     query::Changed,
@@ -14,23 +9,23 @@ use bevy::ecs::{
 use bevy::input::{keyboard::KeyCode, ButtonInput};
 use bevy::log::info;
 use bevy::picking::events::{Click, Pointer};
-use bevy::text::{FontSize, TextColor, TextFont};
-use bevy::ui::{percent, widget::Text, AlignContent, AlignItems, AlignSelf, BackgroundColor, BorderRadius, Display, FlexDirection, FocusPolicy, GridPlacement, GridTrack, IsDefaultUiCamera, JustifyContent, JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, UiRect, Val};
 use bevy::utils::default;
 use bevy::DefaultPlugins;
 use bevy::window::{Window, WindowPlugin};
 
 use crate::cards::{Suit, Value};
 use crate::fireworks::{animate_fireworks, expire_fireworks, launch_fireworks};
-use crate::game::{check_for_victory, check_guesses, clear_guesses, guess_suit, guess_value, redeal_game, select_tile, solve_all, Clue, GameMessage, GameSeed, LayoutData, Selection, Tile, CLUE_INDICES, SPARE_INDICES};
-use crate::render::{GameSeedLabel, RenderPlugin, Theme};
+use crate::game::{check_for_victory, check_guesses, clear_guesses, guess_suit, guess_value, redeal_game, select_tile, solve_all, Clue, GameMessage, GameSeed, LayoutData, Selection, Tile};
+use crate::layout::setup_layout;
+use crate::render::RenderPlugin;
 
 mod cards;
+mod deal;
 mod fireworks;
 mod game;
+mod layout;
 mod poker;
 mod render;
-mod deal;
 
 fn main() {
     let mut app = App::new();
@@ -59,259 +54,6 @@ fn main() {
     app.add_plugins(RenderPlugin);
 
     app.run();
-}
-
-fn setup_layout(
-    mut commands: Commands,
-    theme: Res<Theme>,
-    mut data: ResMut<LayoutData>,
-) {
-    commands.spawn((
-        Camera2d,
-        Camera {
-            order: 0,
-            ..default()
-        },
-        IsDefaultUiCamera,
-    ));
-
-    commands.spawn((
-        Camera2d,
-        Camera {
-            order: 1,
-            clear_color: ClearColorConfig::None,
-            ..default()
-        },
-        RenderLayers::layer(1),
-    ));
-
-    let grid_template_columns = vec![
-        GridTrack::fr(1.2),
-        GridTrack::fr(1.0),
-        GridTrack::fr(1.0),
-        GridTrack::fr(1.0),
-        GridTrack::fr(1.0),
-        GridTrack::fr(1.0),
-        GridTrack::fr(1.2),
-        GridTrack::fr(1.0),
-        GridTrack::fr(1.0),
-        GridTrack::fr(1.0),
-        GridTrack::fr(1.0),
-        GridTrack::fr(1.0),
-    ];
-
-    let grid_template_rows = vec![
-        GridTrack::minmax(MinTrackSizingFunction::Px(80.0), MaxTrackSizingFunction::Auto),
-        GridTrack::fr(1.0),
-        GridTrack::fr(1.0),
-        GridTrack::fr(1.0),
-        GridTrack::fr(1.0),
-        GridTrack::fr(1.0),
-    ];
-
-    let parent_id = commands.spawn((
-        Node {
-            flex_direction: FlexDirection::Column,
-            width: percent(100),
-            height: percent(100),
-            align_content: AlignContent::Center,
-            justify_content: JustifyContent::Center,
-            ..default()
-        },
-    )).id();
-
-    let board_id = commands.spawn((
-        Node {
-            width: percent(100),
-            height: percent(100),
-            display: Display::Grid,
-            align_self: AlignSelf::Center,
-            justify_self: JustifySelf::Center,
-            grid_template_columns,
-            grid_template_rows,
-            ..default()
-        },
-        BackgroundColor(Color::srgb(0.1, 0.2, 0.1)),
-        ChildOf(parent_id),
-    )).id();
-
-    fn make_heading(span: u16, topleft: bool) -> impl Bundle {
-        let align_items;
-        let justify_content;
-        if topleft {
-            align_items = AlignItems::Start;
-            justify_content = JustifyContent::Start;
-        } else {
-            align_items = AlignItems::End;
-            justify_content = JustifyContent::End;
-        }
-        Node {
-            display: Display::Flex,
-            align_items,
-            justify_content,
-            padding: UiRect::all(Val::Px(8.0)),
-            grid_column: GridPlacement::span(span),
-            ..default()
-        }
-    }
-
-    fn make_card(topleft: bool) -> impl Bundle {
-        let align_items;
-        let justify_content;
-        let border;
-        let padding;
-        let margin;
-        let border_radius;
-        if topleft {
-            align_items = AlignItems::Start;
-            justify_content = JustifyContent::Start;
-            border = UiRect::top(Val::Px(2.0)).with_left(Val::Px(2.0));
-            padding = UiRect::all(Val::Px(8.0)).with_right(Val::Px(0.0));
-            margin = UiRect::right(Val::Px(2.0)).with_bottom(Val::Px(40.0));
-            border_radius = BorderRadius::top_left(Val::Px(10.0))
-        } else {
-            align_items = AlignItems::End;
-            justify_content = JustifyContent::End;
-            border = UiRect::bottom(Val::Px(2.0)).with_right(Val::Px(2.0));
-            padding = UiRect::all(Val::Px(8.0)).with_left(Val::Px(0.0));
-            margin = UiRect::left(Val::Px(2.0)).with_top(Val::Px(40.0));
-            border_radius = BorderRadius::bottom_right(Val::Px(10.0))
-        };
-
-        (
-            Node {
-                display: Display::Flex,
-                align_items,
-                justify_content,
-                width: Val::Px(80.0),
-                border,
-                margin,
-                padding,
-                border_radius,
-                ..default()
-            },
-            FocusPolicy::Block,
-        )
-    }
-
-    fn make_spare() -> impl Bundle {
-        (
-            Node {
-                display: Display::Flex,
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                width: Val::Px(80.0),
-                border: UiRect::all(Val::Px(2.0)).with_bottom(Val::Px(0.0)),
-                padding: UiRect::all(Val::Px(8.0)),
-                margin: UiRect::all(Val::Px(4.0)),
-                border_radius: BorderRadius::top(Val::Px(10.0)),
-                ..default()
-            },
-            FocusPolicy::Block,
-        )
-    }
-
-    commands.spawn((
-        Node::default(),
-        ChildOf(board_id),
-        GameSeedLabel,
-    ));
-
-    for i in CLUE_INDICES {
-        data.top_ids[i] = commands.spawn((
-            make_heading(1, true),
-            ChildOf(board_id),
-        )).id();
-    }
-
-    commands.spawn((
-        Node::default(), ChildOf(board_id),
-    ));
-
-    for i in CLUE_INDICES {
-        data.bottom_ids[i] = commands.spawn((
-            make_heading(1, true),
-            ChildOf(board_id),
-        )).id();
-    }
-
-    for i in CLUE_INDICES {
-        data.left_ids[i] = commands.spawn((
-            make_heading(1, true),
-            ChildOf(board_id),
-        )).id();
-        for j in CLUE_INDICES {
-            data.tile_ids[i][j][0] = commands.spawn((
-                make_card(true),
-                ChildOf(board_id),
-            )).id();
-        }
-        data.right_ids[i] = commands.spawn((
-            make_heading(1, true),
-            ChildOf(board_id),
-        )).id();
-        for j in CLUE_INDICES {
-            data.tile_ids[i][j][1] = commands.spawn((
-                make_card(true),
-                ChildOf(board_id),
-            )).id();
-        }
-    }
-
-    let footer_id = commands.spawn((
-        Node {
-            flex_direction: FlexDirection::Row,
-            ..default()
-        },
-        ChildOf(parent_id),
-    )).id();
-
-    // Instructions at bottom
-    let instructions_id = commands.spawn((
-        Node {
-            flex_direction: FlexDirection::Column,
-            ..default()
-        },
-        ChildOf(footer_id),
-    )).id();
-
-    commands.spawn((
-        Node {
-            ..default()
-        },
-        ChildOf(instructions_id),
-        Text::new("R - redeal; Click to guess specific card"),
-        TextColor(Color::srgb(0.8, 0.6, 0.6)),
-        TextFont::from(theme.font.clone()).with_font_size(FontSize::Px(24.0)),
-    ));
-    commands.spawn((
-        Node {
-            ..default()
-        },
-        ChildOf(instructions_id),
-        Text::new("(C,D,H,S) - guess suit; (2-10,J,Q,K,A) - guess value; Space - clear guess"),
-        TextColor(Color::srgb(0.8, 0.6, 0.6)),
-        TextFont::from(theme.font.clone()).with_font_size(FontSize::Px(24.0)),
-    ));
-
-    // Spares in the bottom-right corner
-    commands.spawn((
-        Node {
-            ..default()
-        },
-        Text::new("Spares:"),
-        TextColor(Color::srgb(0.8, 0.8, 0.8)),
-        TextFont::from(theme.font.clone()).with_font_size(FontSize::Px(24.0)),
-        // TextLayout::justify(Justify::Center),
-        ChildOf(footer_id),
-    ));
-
-    for i in SPARE_INDICES {
-        data.spare_ids[i] = commands.spawn((
-            make_spare(),
-            ChildOf(footer_id),
-        )).id();
-    }
 }
 
 fn handle_input(

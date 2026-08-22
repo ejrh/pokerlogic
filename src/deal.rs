@@ -60,7 +60,7 @@ pub fn deal_game(seed: GameSeed) -> DealtGame {
         let bottom_hands = build_hands(&board, ClueLocation::Bottom, &mut hand_counts);
 
         // Check for sufficient interesting hands; redeal if not good enough
-        if hand_counts[PokerHand::Nothing as usize] >= 6 || hand_counts[PokerHand::OnePair as usize] >= 12
+        if hand_counts[PokerHand::NoPair as usize] >= 6 || hand_counts[PokerHand::OnePair as usize] >= 12
             || hand_counts.iter().filter(|k| **k > 0).count() < 4 {
             retries += 1;
             if retries % 1000 == 0 {
